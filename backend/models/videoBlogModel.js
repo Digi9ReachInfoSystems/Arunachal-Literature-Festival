@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 
 
 const videoBlogSchema = new mongoose.Schema({
-     title: {
+    title: {
     type: String,
     required: true,
     trim: true,
+  },
+  videoType:{
+    type:String,
+    enu:["youtube","video"],
+    required:true
   },
   youtubeUrl: {
     type: String,
@@ -18,6 +23,14 @@ const videoBlogSchema = new mongoose.Schema({
       },
       message: (props) => `${props.value} is not a valid YouTube URL.`,
     },
+  },
+  imageUrl: {
+      type: String,
+      
+  },
+  video_url: {
+      type: String,
+
   },
   addedAt: {
     type: Date,
