@@ -10,7 +10,7 @@ eventRoute.post("/addEvent",protect,restrictTo("admin"),addEvent);
 eventRoute.post("/updateEventDay/:eventDayId",protect,restrictTo("admin","user"),updateEventDay);
 eventRoute.post("/addTime/:eventId/day/:eventDay_ref",protect,restrictTo("admin"),addTime);
 eventRoute.post("/updateEvent/:eventId",protect,restrictTo("admin","user"),updateEvent);
-eventRoute.post("/updateTime/:timeId",protect,restrictTo("admin","user"),updateTime);
+eventRoute.post("/updateTime/day/:day_ref/time/:timeId",protect,restrictTo("admin","user"),updateTime);
 eventRoute.delete("/deleteEvent/:eventId",protect,restrictTo("admin"),deleteEvent);
 eventRoute.get("/getEvent",protect,restrictTo("admin","user"),getEvent);
 eventRoute.get("/totalEvent",getTotalEvent);

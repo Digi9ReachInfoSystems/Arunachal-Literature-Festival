@@ -8,6 +8,8 @@ export const addEvent = async (req, res) => {
             req.body;
               const start = new Date(startDate);
                 const end = new Date(endDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             return res.status(400).json({ message: "Invalid date format" });
         }
@@ -28,10 +30,17 @@ export const addEvent = async (req, res) => {
         if (existingEvent) {
             return res.status(409).json({ message: "Event with same name and dates already exists" });
         }
-           const existing = await EventsCollection.find();
-                    if (existing.length > 0) {
-                      return res.status(400).json({ message: "Cant add event untill is ends" });
-                    }
+         const ongoingEvent = await EventsCollection.findOne({
+          $or: [
+            { startDate: { $lte: end }, endDate: { $gte: start } }, // Overlapping dates
+            { endDate: { $gte: today } } // Ongoing or future events
+          ]
+        });
+          if (ongoingEvent) {
+            return res.status(400).json({ 
+                message: `Cannot add new event. Conflicting with "${ongoingEvent.name}" (until ${ongoingEvent.endDate.toDateString()})`
+            });
+        }
         
 
         const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
@@ -175,6 +184,47 @@ export const addTime = async (req, res) => {
         const{eventId} = req.params;
         const { eventDay_ref } = req.params;
         const { startTime, endTime,title,description,type,speaker } = req.body;
+         const toMinutes = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const newStart = toMinutes(startTime);
+        const newEnd = toMinutes(endTime);
+
+        // Validate time format
+        if (isNaN(newStart) || isNaN(newEnd)) {
+            return res.status(400).json({ message: "Invalid time format (use HH:MM)" });
+        }
+
+        // Check if end time is after start time
+        if (newEnd <= newStart) {
+            return res.status(400).json({ message: "End time must be after start time" });
+        }
+      // Check for conflicting times
+        const existingTimes = await TimeCollection.find({ 
+             day_ref: eventDay_ref,
+            event_ref: eventId,
+         
+        });
+
+        const hasConflict = existingTimes.some(existing => {
+            const existingStart = toMinutes(existing.startTime);
+            const existingEnd = toMinutes(existing.endTime);
+            
+            return (
+                (newStart >= existingStart && newStart < existingEnd) ||
+                (newEnd > existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            );
+        });
+
+        if (hasConflict) {
+            return res.status(409).json({ 
+                message: "Time slot conflicts with an existing event",
+                suggestion: "Please choose a different time slot"
+            });
+        }
         const time = new TimeCollection({
             day_ref:eventDay_ref,
             event_ref:eventId,
@@ -252,7 +302,49 @@ export const updateEvent = async (req, res) => {
 export const updateTime = async (req, res) => {
     try {
         const { timeId } = req.params;
+        const {day_ref} = req.params;
         const { startTime, endTime,title,description,type,speaker } = req.body;
+       const toMinutes = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const newStart = toMinutes(startTime);
+        const newEnd = toMinutes(endTime);
+
+        // Validate time format
+        if (isNaN(newStart) || isNaN(newEnd)) {
+            return res.status(400).json({ message: "Invalid time format (use HH:MM)" });
+        }
+
+        // Check if end time is after start time
+        if (newEnd <= newStart) {
+            return res.status(400).json({ message: "End time must be after start time" });
+        }
+      // Check for conflicting times
+        const existingTimes = await TimeCollection.find({ 
+             day_ref: day_ref,
+            _id: { $ne: timeId }
+         
+        });
+
+        const hasConflict = existingTimes.some(existing => {
+            const existingStart = toMinutes(existing.startTime);
+            const existingEnd = toMinutes(existing.endTime);
+            
+            return (
+                (newStart >= existingStart && newStart < existingEnd) ||
+                (newEnd > existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            );
+        });
+
+        if (hasConflict) {
+            return res.status(409).json({ 
+                message: "Time slot conflicts with an existing event",
+                suggestion: "Please choose a different time slot"
+            });
+        }
         const time = await TimeCollection.findById(timeId);
         if (!time) {
             return res.status(404).json({ message: "Time not found" });

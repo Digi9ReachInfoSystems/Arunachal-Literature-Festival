@@ -23,7 +23,7 @@ const textSchmea = new mongoose.Schema({
 })
 const BannerText = mongoose.model("Text", textSchmea);
 
-const buttonTestSchema = new mongoose.Schema({
+const buttonTextSchema = new mongoose.Schema({
     text: {
         type: String,
         required: true
@@ -33,7 +33,7 @@ const buttonTestSchema = new mongoose.Schema({
         required: true
     }
 })
-const Button = mongoose.model("Button", buttonTestSchema);
+const Button = mongoose.model("Button", buttonTextSchema);
 
 const poetrySchmea =  new mongoose.Schema({
     text: {
