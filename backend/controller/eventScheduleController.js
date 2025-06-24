@@ -28,7 +28,11 @@ export const addEvent = async (req, res) => {
         if (existingEvent) {
             return res.status(409).json({ message: "Event with same name and dates already exists" });
         }
-
+           const existing = await EventsCollection.find();
+                    if (existing.length > 0) {
+                      return res.status(400).json({ message: "Banner already exists" });
+                    }
+        
 
         const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
        

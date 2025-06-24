@@ -7,13 +7,21 @@ const bannerSchmea = new mongoose.Schema({
 })
 const Banner = mongoose.model("Banner", bannerSchmea);
 const textSchmea = new mongoose.Schema({
-    text: {
+    bannerText: {
         type: String,
         required: true
 
+    },
+    bannerSubText: {
+        type: String,
+       
+    },
+    location: {
+        type: String,
     }
+
 })
-const Text = mongoose.model("Text", textSchmea);
+const BannerText = mongoose.model("Text", textSchmea);
 
 const buttonTestSchema = new mongoose.Schema({
     text: {
@@ -59,4 +67,4 @@ const testiMoneySchema = new mongoose.Schema({
 })
 const Testimony = mongoose.model("Testimony", testiMoneySchema);
 
-export  {Banner, Text, Button, Poetry, Testimony};
+export  {Banner, BannerText, Button, Poetry, Testimony};
