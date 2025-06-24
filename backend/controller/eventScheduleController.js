@@ -30,7 +30,7 @@ export const addEvent = async (req, res) => {
         }
            const existing = await EventsCollection.find();
                     if (existing.length > 0) {
-                      return res.status(400).json({ message: "Banner already exists" });
+                      return res.status(400).json({ message: "Cant add event untill is ends" });
                     }
         
 
