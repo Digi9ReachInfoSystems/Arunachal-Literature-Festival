@@ -5,6 +5,7 @@ import {
   deleteday,
   deleteUploadedImage,
   deleteYear,
+  getImagesByItsYear,
   getUploadedImage,
   getYearDayWiseImages,
   getYearWiseImages,
@@ -55,4 +56,5 @@ archiveRoute.delete(
   deleteday
 );
 archiveRoute.get("/getYearDayWiseImages", getYearDayWiseImages);
+archiveRoute.get("/getYearImages/:yearId", getImagesByItsYear);
 export default archiveRoute;

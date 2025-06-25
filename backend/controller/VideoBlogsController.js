@@ -1,31 +1,33 @@
 import VideoBlog from "../models/videoBlogModel.js";
-import { bucket  } from "../config/firebaseConfig.js";
+import { bucket } from "../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
 const storage = multer.memoryStorage();
-const upload = multer({   storage: storage }).fields([ { name: 'video', maxCount: 1 },{ name: 'thumbnail', maxCount: 1 }]);
-
-
+const upload = multer({ storage: storage }).fields([
+  { name: "video", maxCount: 1 },
+  { name: "thumbnail", maxCount: 1 },
+]);
 
 function cleanYouTubeUrl(url) {
-    // Handle youtu.be links
-    if (url.includes('youtu.be')) {
-        const videoId = url.split('/').pop().split('?')[0];
-        return `https://www.youtube.com/watch?v=${videoId}`;
+  // Handle youtu.be links
+  if (url.includes("youtu.be")) {
+    const videoId = url.split("/").pop().split("?")[0];
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  }
+
+  // Handle YouTube URLs with additional parameters
+  if (url.includes("youtube.com")) {
+    // Extract video ID from various URL formats
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/watch?v=${match[2]}`;
     }
-    
-    // Handle YouTube URLs with additional parameters
-    if (url.includes('youtube.com')) {
-        // Extract video ID from various URL formats
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        if (match && match[2].length === 11) {
-            return `https://www.youtube.com/watch?v=${match[2]}`;
-        }
-    }
-    
-    // Return original if we can't clean it (will trigger your schema validation)
-    return url;
+  }
+
+  // Return original if we can't clean it (will trigger your schema validation)
+  return url;
 }
 const uploadFileToFirebase = async (file, folder) => {
   const fileName = Date.now() + path.extname(file.originalname);
@@ -34,15 +36,15 @@ const uploadFileToFirebase = async (file, folder) => {
 
   return new Promise((resolve, reject) => {
     const stream = fileUpload.createWriteStream({
-      metadata: { contentType: file.mimetype }
+      metadata: { contentType: file.mimetype },
     });
 
-    stream.on('error', (err) => {
+    stream.on("error", (err) => {
       console.error("Firebase upload error:", err);
       reject(err);
     });
 
-    stream.on('finish', async () => {
+    stream.on("finish", async () => {
       try {
         await fileUpload.makePublic();
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
@@ -57,31 +59,30 @@ const uploadFileToFirebase = async (file, folder) => {
 };
 const deleteFileFromFirebase = async (fileUrl) => {
   try {
-    
-    
-    
     const baseUrl = `https://storage.googleapis.com/${bucket.name}/`;
     let filePath = fileUrl;
-    
-    
-    if (fileUrl.startsWith(baseUrl)) {
-      filePath = fileUrl.replace(baseUrl, '');
-    }
-   
-    else if (fileUrl.includes(`storage.googleapis.com/${bucket.name}/`)) {
-      filePath = fileUrl.split(`storage.googleapis.com/${bucket.name}/`)[1];
-    }
 
-    else if (fileUrl.includes(`firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`)) {
-      filePath = fileUrl.split(`firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`)[1];
-      filePath = decodeURIComponent(filePath.split('?')[0]).replace(/%2F/g, '/');
+    if (fileUrl.startsWith(baseUrl)) {
+      filePath = fileUrl.replace(baseUrl, "");
+    } else if (fileUrl.includes(`storage.googleapis.com/${bucket.name}/`)) {
+      filePath = fileUrl.split(`storage.googleapis.com/${bucket.name}/`)[1];
+    } else if (
+      fileUrl.includes(`firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`)
+    ) {
+      filePath = fileUrl.split(
+        `firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
+      )[1];
+      filePath = decodeURIComponent(filePath.split("?")[0]).replace(
+        /%2F/g,
+        "/"
+      );
     }
 
     console.log("Attempting to delete file:", filePath);
 
     const file = bucket.file(filePath);
     const [exists] = await file.exists();
-    
+
     if (!exists) {
       console.warn("File does not exist:", filePath);
       return;
@@ -108,7 +109,7 @@ const deleteFileFromFirebase = async (fileUrl) => {
  * @returns {Promise<void>}
  */
 export const addVideoBlog = async (req, res) => {
-   const handleFileUpload = () => {
+  const handleFileUpload = () => {
     return new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (err) {
@@ -126,7 +127,7 @@ export const addVideoBlog = async (req, res) => {
 
     let videoBlog;
 
-    if (videoType === 'youtube') {
+    if (videoType === "youtube") {
       if (!youtubeUrl) {
         return res.status(400).json({ message: "Please enter YouTube URL" });
       }
@@ -136,16 +137,14 @@ export const addVideoBlog = async (req, res) => {
         title,
         videoType,
         addedAt,
-        youtubeUrl: cleanedUrl
+        youtubeUrl: cleanedUrl,
       });
 
       return res.status(201).json(videoBlog);
-    }
-
-    else if (videoType === 'video') {
+    } else if (videoType === "video") {
       if (!req.files || !req.files.video || !req.files.thumbnail) {
         return res.status(400).json({
-          message: "Both video and thumbnail files are required"
+          message: "Both video and thumbnail files are required",
         });
       }
 
@@ -153,8 +152,8 @@ export const addVideoBlog = async (req, res) => {
       const thumbnailFile = req.files.thumbnail[0];
 
       const [videoUrl, thumbnailUrl] = await Promise.all([
-        uploadFileToFirebase(videoFile, 'VideoBlog/videos'),
-        uploadFileToFirebase(thumbnailFile, 'VideoBlog/thumbnails')
+        uploadFileToFirebase(videoFile, "VideoBlog/videos"),
+        uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails"),
       ]);
 
       videoBlog = await VideoBlog.create({
@@ -162,7 +161,7 @@ export const addVideoBlog = async (req, res) => {
         videoType,
         addedAt,
         video_url: videoUrl,
-        imageUrl: thumbnailUrl
+        imageUrl: thumbnailUrl,
       });
 
       return res.status(201).json(videoBlog);
@@ -174,73 +173,65 @@ export const addVideoBlog = async (req, res) => {
     console.error("Error adding video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
-export const getVideoBlog = async (req, res) =>{
-  try{
+export const getVideoBlog = async (req, res) => {
+  try {
     const videoBlog = await VideoBlog.find();
     res.status(200).json(videoBlog);
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
-export const getVideoBlogById = async (req, res) =>{
-  try{
-    const {videoId} = req.params;
+export const getVideoBlogById = async (req, res) => {
+  try {
+    const { videoId } = req.params;
     const videoBlog = await VideoBlog.findById(videoId);
     res.status(200).json(videoBlog);
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
-export const getYoutubeVideo = async(req, res) =>{
-  try{
-   
-    const videoBlog = await VideoBlog.find({videoType: 'youtube'});
-    if(!videoBlog){
+export const getYoutubeVideo = async (req, res) => {
+  try {
+    const videoBlog = await VideoBlog.find({ videoType: "youtube" });
+    if (!videoBlog) {
       return res.status(404).json({ message: "Video Blog not found" });
     }
     res.status(200).json(videoBlog);
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
-export const getRawVideo = async(req, res) =>{
-  try{
-   
-    const videoBlog = await VideoBlog.find({videoType: 'video'});
-    if(!videoBlog){
+};
+export const getRawVideo = async (req, res) => {
+  try {
+    const videoBlog = await VideoBlog.find({ videoType: "video" });
+    if (!videoBlog) {
       return res.status(404).json({ message: "Video Blog not found" });
     }
     res.status(200).json(videoBlog);
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 export const getRawVideoById = async (req, res) => {
   try {
     const { videoId } = req.params;
-    
-   
+
     const videoBlog = await VideoBlog.findOne({
       _id: videoId,
-      videoType: 'video'  
+      videoType: "video",
     });
 
     if (!videoBlog) {
-      return res.status(404).json({ 
-        message: "Raw video not found or not a raw video type" 
+      return res.status(404).json({
+        message: "Raw video not found or not a raw video type",
       });
     }
 
@@ -249,10 +240,10 @@ export const getRawVideoById = async (req, res) => {
     console.error("Error getting raw video:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
-export const updateVideoBlog = async (req,res)=>{
-     const handleFileUpload = () => {
+export const updateVideoBlog = async (req, res) => {
+  const handleFileUpload = () => {
     return new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (err) {
@@ -263,86 +254,91 @@ export const updateVideoBlog = async (req,res)=>{
       });
     });
   };
-  try{
+  try {
     await handleFileUpload();
-    const {videoId} = req.params;
-     const { title, videoType, addedAt, youtubeUrl } = req.body;
-     const videoBlog = await VideoBlog.findById(videoId);
-     if(!videoBlog){
-      return res.status(404).json({message: "Video blog not found"});
-      }
-      let videoBlogUpdate ;
-      if(videoType === 'youtube'){
-        const cleanedUrl = cleanYouTubeUrl(youtubeUrl);
-        videoBlogUpdate = await VideoBlog.findByIdAndUpdate(videoId, {
+    const { videoId } = req.params;
+    const { title, videoType, addedAt, youtubeUrl } = req.body;
+    const videoBlog = await VideoBlog.findById(videoId);
+    if (!videoBlog) {
+      return res.status(404).json({ message: "Video blog not found" });
+    }
+    let videoBlogUpdate;
+    if (videoType === "youtube") {
+      const cleanedUrl = cleanYouTubeUrl(youtubeUrl);
+      videoBlogUpdate = await VideoBlog.findByIdAndUpdate(
+        videoId,
+        {
           title,
           videoType,
           addedAt,
-          youtubeUrl: cleanedUrl
-        }, {new: true});
-        return res.status(201).json("youtube video updated successfully",videoBlogUpdate);
+          youtubeUrl: cleanedUrl,
+        },
+        { new: true }
+      );
+      return res
+        .status(201)
+        .json("youtube video updated successfully", videoBlogUpdate);
+    } else if (videoType === "video") {
+      if (!req.files || !req.files.video || !req.files.thumbnail) {
+        return res.status(400).json({
+          message: "Both video and thumbnail files are required",
+        });
       }
-      else if(videoType === 'video'){
-             if (!req.files || !req.files.video || !req.files.thumbnail) {
-                  return res.status(400).json({
-                    message: "Both video and thumbnail files are required"
-                  });
-                }
-               const videoFile = req.files.video[0];
-               const thumbnailFile = req.files.thumbnail[0];
-               const deletePromises = [];
-              if (videoBlog.video_url) {
-                deletePromises.push(deleteFileFromFirebase(videoBlog.video_url));
-              }
-              if (videoBlog.imageUrl) {
-                deletePromises.push(deleteFileFromFirebase(videoBlog.imageUrl));
-              }
-              await Promise.all(deletePromises);
-                const [videoUrl, thumbnailUrl] = await Promise.all([
-                uploadFileToFirebase(videoFile, 'VideoBlog/videos'),
-                uploadFileToFirebase(thumbnailFile, 'VideoBlog/thumbnails')
-              ]);
-              videoBlogUpdate = await VideoBlog.findByIdAndUpdate(videoId, {
-                title,
-                videoType,
-                addedAt,
-                video_url: videoUrl,
-                imageUrl: thumbnailUrl
-              }, {new: true});
-              return res.status(201).json("video updated successfully",videoBlogUpdate);
-
-
+      const videoFile = req.files.video[0];
+      const thumbnailFile = req.files.thumbnail[0];
+      const deletePromises = [];
+      if (videoBlog.video_url) {
+        deletePromises.push(deleteFileFromFirebase(videoBlog.video_url));
       }
-      else{
-        res.status(400).json({message: "Invalid video type"});
+      if (videoBlog.imageUrl) {
+        deletePromises.push(deleteFileFromFirebase(videoBlog.imageUrl));
       }
-
-  }
-  catch(err){
+      await Promise.all(deletePromises);
+      const [videoUrl, thumbnailUrl] = await Promise.all([
+        uploadFileToFirebase(videoFile, "VideoBlog/videos"),
+        uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails"),
+      ]);
+      videoBlogUpdate = await VideoBlog.findByIdAndUpdate(
+        videoId,
+        {
+          title,
+          videoType,
+          addedAt,
+          video_url: videoUrl,
+          imageUrl: thumbnailUrl,
+        },
+        { new: true }
+      );
+      return res
+        .status(201)
+        .json("video updated successfully", videoBlogUpdate);
+    } else {
+      res.status(400).json({ message: "Invalid video type" });
+    }
+  } catch (err) {
     console.error("Error updating video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
-export const deleteVideoBlog = async (req,res)=>{
-  try{
-    const {videoId} = req.params;
+export const deleteVideoBlog = async (req, res) => {
+  try {
+    const { videoId } = req.params;
     const videoBlog = await VideoBlog.findById(videoId);
-     if(!videoBlog){
-      return res.status(404).json({message: "Video blog not found"});
-      }
-      if (videoBlog.video_url) {
-        await deleteFileFromFirebase(videoBlog.video_url);
-      }
-      if (videoBlog.imageUrl) {
-        await deleteFileFromFirebase(videoBlog.imageUrl);
-      }
-      await VideoBlog.findByIdAndDelete(videoId);
-      res.status(200).json({message: "Video blog deleted successfully"});
-  }
-  catch(err){
+    if (!videoBlog) {
+      return res.status(404).json({ message: "Video blog not found" });
+    }
+    if (videoBlog.video_url) {
+      await deleteFileFromFirebase(videoBlog.video_url);
+    }
+    if (videoBlog.imageUrl) {
+      await deleteFileFromFirebase(videoBlog.imageUrl);
+    }
+    await VideoBlog.findByIdAndDelete(videoId);
+    res.status(200).json({ message: "Video blog deleted successfully" });
+  } catch (err) {
     console.error("Error deleting video blog:", err.message);
-    res.status(500).json({ message: "Internal Server Error" }); 
+    res.status(500).json({ message: "Internal Server Error" });
   }
-      }
+};
 

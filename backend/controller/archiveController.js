@@ -466,3 +466,42 @@ export const getYearDayWiseImages = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+export const getImagesByItsYear = async (req, res) => {
+  try{
+      const {yearId} = req.params;
+       const images = await Archive.find({ year_ref: yearId })
+      .populate({
+        path: "year_ref",
+        select: "year"  
+      })
+      .populate({
+        path: "dayNumber_ref",
+        select: "dayLabel"  
+      });
+
+    if (!images || images.length === 0) {
+      return res.status(404).json({ message: "No images found for this year" });
+    }
+
+    // Transform the data to a cleaner format
+    const result = {
+      year: images[0].year_ref.year,  
+      images: images.map(img => ({
+        id: img._id,
+        url: img.image_url,
+
+      }))
+    };
+
+    res.status(200).json({
+      message: "Images found for year",
+      archive: result
+    });
+      
+  }
+  catch(err){
+    console.error("Error getting images by year:", err.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+

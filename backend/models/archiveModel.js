@@ -31,7 +31,9 @@ const dayNumber = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'DayNumber',
         },
-    image_url: String,
+    image_url:{
+      type: String,
+    }   ,
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
 
