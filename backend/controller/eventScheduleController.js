@@ -109,9 +109,9 @@ export const getEvent = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 }
-export const getTotalEvent = async (req,res)=>{
-      try {
-    // First get all time entries with populated references
+export const getTotalEvent = async (req, res) => {
+  try {
+   
     const timeEntries = await TimeCollection.find()
       .populate('day_ref')
       .populate('event_ref');
@@ -119,14 +119,21 @@ export const getTotalEvent = async (req,res)=>{
     if (timeEntries.length === 0) {
       return res.status(404).json({ message: "No time entries found" });
     }
-    
-  
-    const eventData = timeEntries[0].event_ref.toObject();
-    
 
+   
+    const firstValidEntry = timeEntries.find(entry => entry.event_ref);
+    
+    if (!firstValidEntry) {
+      return res.status(404).json({ message: "No valid event references found in time entries" });
+    }
+
+    const eventData = firstValidEntry.event_ref.toObject();
     const daysMap = new Map();
     
     timeEntries.forEach(entry => {
+     
+      if (!entry.day_ref) return;
+      
       const dayId = entry.day_ref._id.toString();
       
       if (!daysMap.has(dayId)) {
@@ -135,7 +142,6 @@ export const getTotalEvent = async (req,res)=>{
         daysMap.set(dayId, day);
       }
       
-   
       const timeEntry = entry.toObject();
       delete timeEntry.event_ref;
       delete timeEntry.day_ref;
@@ -143,17 +149,17 @@ export const getTotalEvent = async (req,res)=>{
       daysMap.get(dayId).times.push(timeEntry);
     });
     
-    
     const days = Array.from(daysMap.values());
-    
-
     days.sort((a, b) => a.dayNumber - b.dayNumber);
     
- 
     days.forEach(day => {
-      day.times.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+      day.times.sort((a, b) => {
+       
+        const timeA = a.startTime ? new Date(`1970-01-01T${a.startTime}`) : 0;
+        const timeB = b.startTime ? new Date(`1970-01-01T${b.startTime}`) : 0;
+        return timeA - timeB;
+      });
     });
-    
     
     const response = {
       event: eventData,
