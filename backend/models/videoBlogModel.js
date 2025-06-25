@@ -14,7 +14,7 @@ const videoBlogSchema = new mongoose.Schema({
   },
   youtubeUrl: {
     type: String,
-    required: true,
+    
     trim: true,
     validate: {
       validator: function (v) {
