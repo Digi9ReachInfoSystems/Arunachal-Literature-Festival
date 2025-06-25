@@ -509,4 +509,61 @@ export const genratePdf = async(req,res)=>{
   }
 }
 
-// export const getDayEven
+export const deleteTime = async (req, res) =>{
+  try{
+    const { timeId } = req.params;
+    const time = await TimeCollection.findByIdAndDelete(timeId);
+    if(!time){
+      return res.status(404).json({ message: 'Time not found' });
+    }
+    res.status(200).json({ message: 'Time deleted successfully' });
+
+  }
+  catch(err){
+    console.error('Error in deleteTime:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+}
+export const getTime = async (req, res) =>{
+  try{
+    const time = await TimeCollection.find();
+    if(!time){
+      return res.status(404).json({ message: 'Time not found' });
+      }
+      res.status(200).json(time);
+      }
+      catch(err){
+        console.error('Error in getTime:', err.message);
+        res.status(500).json({ message: 'Server error', error: err.message });
+      }
+}
+
+export const getFullEventDetails = async (req, res) => {
+  try {
+  
+
+    const events  = await EventsCollection.find();
+    if (!events || events.length === 0) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const event = events[0];
+    
+    const eventDays = await EventDayCollection.find({ event_ref: event._id });
+    const timeSlots = await TimeCollection.find({ event_ref: event._id }).populate("day_ref");
+   const structuredDays = eventDays.map(day => {
+      return {
+        ...day.toObject(),
+        timeSlots: timeSlots.filter(slot => slot.day_ref._id.toString() === day._id.toString())
+      };
+    });
+
+    res.status(200).json({
+      event,
+      days: structuredDays
+    });
+  } catch (err) {
+    console.error("Error fetching full event details:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
