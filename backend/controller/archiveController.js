@@ -523,6 +523,6 @@ export const getYear = async (req, res) => {
     res.status(200).json({ years: result });
   } catch (err) {
     console.error("Error getting years and days:", err.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Errors" });
   }
 };
