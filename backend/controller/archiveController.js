@@ -504,12 +504,10 @@ export const getImagesByItsYear = async (req, res) => {
 
 export const getYear = async (req, res) => {
   try {
-    const years = await Year.find().populate('days');
-    const days = await DayNumber.find();
-    //  const dayLabels = days.map(day => day.dayLabel);
-    res.status(200).json({ years});
+    const year = await Year.find();
+    res.status(200).json({ year });
   } catch (err) {
-    console.error("Error getting year:", err.message);
+    console.error("Error getting years and days:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
