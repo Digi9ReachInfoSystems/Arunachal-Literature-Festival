@@ -7,6 +7,7 @@ import {
   deleteYear,
   getImagesByItsYear,
   getUploadedImage,
+  getYear,
   getYearDayWiseImages,
   getYearWiseImages,
   updateUploadedImage,
@@ -57,4 +58,5 @@ archiveRoute.delete(
 );
 archiveRoute.get("/getYearDayWiseImages", getYearDayWiseImages);
 archiveRoute.get("/getYearImages/:yearId", getImagesByItsYear);
+archiveRoute.get("/getYear",getYear );
 export default archiveRoute;

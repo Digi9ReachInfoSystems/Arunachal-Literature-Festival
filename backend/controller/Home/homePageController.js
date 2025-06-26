@@ -1,12 +1,18 @@
-import {Banner, BannerText, Button, Poetry, Testimony} from "../../models/Home/homePageModel.js"
+import {
+  Banner,
+  BannerText,
+  Button,
+  Poetry,
+  Testimony,
+} from "../../models/Home/homePageModel.js";
 import { bucket } from "../../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
-export const addBanner = async (req, res) =>{
-    const handleFileUpload = () => {
+export const addBanner = async (req, res) => {
+  const handleFileUpload = () => {
     return new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (err) {
@@ -17,65 +23,58 @@ export const addBanner = async (req, res) =>{
       });
     });
   };
-    try {
-         await handleFileUpload();
-         const file = req.file;
-                 let imageUrl = '';
-                         if (file) {
-                             const fileName = Date.now() + path.extname(file.originalname);
-                             const destination = `Home/Banner/${fileName}`; 
-                             const fileUpload = bucket.file(destination);
-                             
-                             // Upload the file to Google Cloud Storage
-                              await new Promise((resolve, reject) => {
-                                 const stream = fileUpload.createWriteStream({
-                                 metadata: {
-                                     contentType: file.mimetype,
-                                 },
-                                 });
-                 
-                                 stream.on("error", reject);
-                 
-                                 stream.on("finish", async () => {
-                                 try {
-                                     await fileUpload.makePublic();
-                                     imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-                                     resolve();
-                                 } catch (error) {
-                                     reject(error);
-                                 }
-                                 });
-                 
-                                 stream.end(file.buffer);
-                             });
-                         }
-            
-         
-                         
+  try {
+    await handleFileUpload();
+    const file = req.file;
+    let imageUrl = "";
+    if (file) {
+      const fileName = Date.now() + path.extname(file.originalname);
+      const destination = `Home/Banner/${fileName}`;
+      const fileUpload = bucket.file(destination);
+
+      // Upload the file to Google Cloud Storage
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: {
+            contentType: file.mimetype,
+          },
+        });
+
+        stream.on("error", reject);
+
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        stream.end(file.buffer);
+      });
+    }
+
     const banner = await Banner.create({ image_url: imageUrl });
-        res.json({message: 'Banner Added Successfully', banner: banner});
-
-
-    } catch (error) {
-
-        console.error("Error adding banner:", error);
-        res.status(500).json({ message: "Server error" });
-
-        
-    }
-}
+    res.json({ message: "Banner Added Successfully", banner: banner });
+  } catch (error) {
+    console.error("Error adding banner:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 export const getBanner = async (req, res) => {
-    try {
-        const banner = await Banner.find();
-        res.status(200).json(banner);
-    } catch (error) {
-        console.error("Error getting banner:", error);
-        res.status(500).json({ message: "Server error" });
-    }
-}
+  try {
+    const banner = await Banner.find();
+    res.status(200).json(banner);
+  } catch (error) {
+    console.error("Error getting banner:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export const updateBanner = async (req, res) => {
-      const handleFileUpload = () => {
+  const handleFileUpload = () => {
     return new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (err) return reject(err);
@@ -99,7 +98,9 @@ export const updateBanner = async (req, res) => {
     if (file) {
       // Delete old image if it exists
       if (banner.image_url && banner.image_url.includes(bucket.name)) {
-        const urlParts = banner.image_url.split(`https://storage.googleapis.com/${bucket.name}/`);
+        const urlParts = banner.image_url.split(
+          `https://storage.googleapis.com/${bucket.name}/`
+        );
         const oldFilePath = urlParts[1];
         if (oldFilePath) {
           try {
@@ -145,54 +146,63 @@ export const updateBanner = async (req, res) => {
       message: "Banner updated successfully",
       banner: updatedBanner,
     });
+  } catch (error) {
+    console.error("Error updating banner:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
-  }catch (error) {
-        console.error("Error updating banner:", error);
-        res.status(500).json({ message: "Server error" });
-    }
-}
-
-export const deleteBanner = async(req,res)=>{
+export const deleteBanner = async (req, res) => {
   try {
-    const {bannerId} = req.params;
+    const { bannerId } = req.params;
     const banner = await Banner.findById(bannerId);
     if (!banner) {
       return res.status(404).json({ message: "Banner not found" });
-      }
-     if(banner.image_url){
-      const urlParts = banner.image_url.split(`https://storage.googleapis.com/${bucket.name}/`);
+    }
+    if (banner.image_url) {
+      const urlParts = banner.image_url.split(
+        `https://storage.googleapis.com/${bucket.name}/`
+      );
       const filePath = urlParts[1];
       if (filePath) {
-        await bucket.file(filePath).delete().catch((err) => {
-          console.warn("Warning: Failed to delete image from Firebase:", err.message);
-        });
+        await bucket
+          .file(filePath)
+          .delete()
+          .catch((err) => {
+            console.warn(
+              "Warning: Failed to delete image from Firebase:",
+              err.message
+            );
+          });
       }
-     }
+    }
 
-      await Banner.findByIdAndDelete(bannerId);
-      res.status(200).json({ message: "Banner deleted successfully" });
+    await Banner.findByIdAndDelete(bannerId);
+    res.status(200).json({ message: "Banner deleted successfully" });
   } catch (error) {
     console.error("Error deleting banner:", error);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
-
-export const addText = async (req, res) =>{
-  try{
-    const {bannerText,bannerSubText,location} = req.body;
-      const existing = await BannerText.find();
-            if (existing.length > 0) {
-              return res.status(400).json({ message: "Banner already exists" });
-            }
-    const newText = await BannerText.create({bannerText,bannerSubText,location});
+export const addText = async (req, res) => {
+  try {
+    const { bannerText, bannerSubText, location } = req.body;
+    const existing = await BannerText.find();
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Banner already exists" });
+    }
+    const newText = await BannerText.create({
+      bannerText,
+      bannerSubText,
+      location,
+    });
     res.status(201).json(newText);
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error adding text:", err.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 export const getText = async (req, res) => {
   try {
@@ -202,95 +212,87 @@ export const getText = async (req, res) => {
     console.error("Error getting text:", error.message);
     res.status(500).json({ message: "Server error" });
   }
-}
-export const updateText = async (req, res) =>{
-  try{
-    const {bannerText,bannerSubText,location} = req.body;
-    const {bannerId} = req.params;
-    const bannerTextUpdate = await BannerText.findByIdAndUpdate(bannerId, {bannerText,bannerSubText,location},{new:true});
+};
+export const updateText = async (req, res) => {
+  try {
+    const { bannerText, bannerSubText, location } = req.body;
+    const { bannerId } = req.params;
+    const bannerTextUpdate = await BannerText.findByIdAndUpdate(
+      bannerId,
+      { bannerText, bannerSubText, location },
+      { new: true }
+    );
     res.status(200).json(bannerTextUpdate);
-    }
-    catch(err){
-      console.error("Error updating text:", err.message);
-      res.status(500).json({ message: "Server error" });
-    }
-
-}
-export const deleteText = async (req, res) =>{
-  try{
-    const {bannerId} = req.params;
+  } catch (err) {
+    console.error("Error updating text:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+export const deleteText = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
     await BannerText.findByIdAndDelete(bannerId);
     res.status(200).json({ message: "Text deleted successfully" });
-    }
-    catch(err){
-      console.error("Error deleting text:", err.message);
-      res.status(500).json({ message: "Server error" });
-    }
-}
+  } catch (err) {
+    console.error("Error deleting text:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 export const addButtonText = async (req, res) => {
   try {
-    const  {text , link } = req.body;
+    const { text, link } = req.body;
     const existing = await Button.find();
-    if (existing.length >0) {
+    if (existing.length > 0) {
       return res.status(400).json({ message: "Banner already exists" });
     }
     const newText = await Button.create({ text, link });
     res.status(201).json(newText);
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error adding text:", err.message);
     res.status(500).json({ message: "Server error" });
-
   }
-}
+};
 
-export const getButtonText = async (req, res) =>{
-  try{
+export const getButtonText = async (req, res) => {
+  try {
     const getText = await Button.find();
     res.status(200).json(getText);
-
-
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting text:", err.message);
     res.status(500).json({ message: "Server error" });
   }
-}
-export const updateButtonText = async (req, res) =>{
-  try{
-    const {buttonId} = req.params;
-    const {text, link} = req.body;
+};
+export const updateButtonText = async (req, res) => {
+  try {
+    const { buttonId } = req.params;
+    const { text, link } = req.body;
 
-    const ButtonUpdate = await Button.findByIdAndUpdate(buttonId, {text, link},{new:true});
+    const ButtonUpdate = await Button.findByIdAndUpdate(
+      buttonId,
+      { text, link },
+      { new: true }
+    );
     res.status(201).json(ButtonUpdate);
-
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error updating text:", err.message);
     res.status(500).json({ message: "Server error" });
-
   }
-}
+};
 
-export const deleteButtonText = async (req, res) =>{
-  try{
-    const {buttonId} = req.params;
+export const deleteButtonText = async (req, res) => {
+  try {
+    const { buttonId } = req.params;
     await Button.findByIdAndDelete(buttonId);
     res.status(200).json({ message: "Text deleted successfully" });
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error deleting text:", err.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 export const addPoetry = async (req, res) => {
   try {
-    const { text,author } = req.body;
+    const { text, author } = req.body;
     const existing = await Poetry.find();
     if (existing.length > 0) {
       return res.status(400).json({ message: "Poetry already exists" });
@@ -303,20 +305,21 @@ export const addPoetry = async (req, res) => {
   }
 };
 
-export const updatePoetry = async (req, res) =>{
-  try{
-    const {poetryId} = req.params;
-    const {text, author} = req.body;
-    const updatedPoetry = await Poetry.findByIdAndUpdate(poetryId, {text, author},{new:true });
+export const updatePoetry = async (req, res) => {
+  try {
+    const { poetryId } = req.params;
+    const { text, author } = req.body;
+    const updatedPoetry = await Poetry.findByIdAndUpdate(
+      poetryId,
+      { text, author },
+      { new: true }
+    );
     res.status(201).json(updatedPoetry);
-
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error updating poetry:", err.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 export const getPoetry = async (req, res) => {
   try {
@@ -326,70 +329,74 @@ export const getPoetry = async (req, res) => {
     console.error("Error getting poetry:", error.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 export const deletePoetry = async (req, res) => {
   try {
-    const {poetryId} = req.params;
+    const { poetryId } = req.params;
     await Poetry.findByIdAndDelete(poetryId);
     res.status(200).json({ message: "Poetry deleted successfully" });
   } catch (error) {
     console.error("Error deleting poetry:", error.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 export const addTestimonial = async (req, res) => {
-      const handleFileUpload = () => {
-                return new Promise((resolve, reject) => {
-                upload(req, res, (err) => {
-                    if (err) return reject(err);
-                    resolve();
-                });
-                });
-            };
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
   try {
-     await handleFileUpload();
-    const { name, about,description } = req.body;
+    await handleFileUpload();
+    const { name, about, description } = req.body;
     const existing = await Testimony.find();
     if (existing.length > 0) {
       return res.status(400).json({ message: "Testimonial already exists" });
     }
-      const file = req.file;
-               let imageUrl = '';
-                    if (file) {
-                        const fileName = Date.now() + path.extname(file.originalname);
-                        const destination = `Home/Testimonial/${fileName}`; 
-                        const fileUpload = bucket.file(destination);
-                        
-                        // Upload the file to Google Cloud Storage
-                         await new Promise((resolve, reject) => {
-                            const stream = fileUpload.createWriteStream({
-                            metadata: {
-                                contentType: file.mimetype,
-                            },
-                            });
-            
-                            stream.on("error", reject);
-            
-                            stream.on("finish", async () => {
-                            try {
-                                await fileUpload.makePublic();
-                                imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-                                resolve();
-                            } catch (error) {
-                                reject(error);
-                            }
-                            });
-            
-                            stream.end(file.buffer);
-                        });
-                    }
+    const file = req.file;
+    let imageUrl = "";
+    if (file) {
+      const fileName = Date.now() + path.extname(file.originalname);
+      const destination = `Home/Testimonial/${fileName}`;
+      const fileUpload = bucket.file(destination);
 
-    const newTestimonial = await Testimony.create({ name,about,description,image_url:imageUrl });
+      // Upload the file to Google Cloud Storage
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: {
+            contentType: file.mimetype,
+          },
+        });
+
+        stream.on("error", reject);
+
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        stream.end(file.buffer);
+      });
+    }
+
+    const newTestimonial = await Testimony.create({
+      name,
+      about,
+      description,
+      image_url: imageUrl,
+    });
     res.status(201).json(newTestimonial);
   } catch (error) {
     console.error("Error adding testimonial:", error);
     res.status(500).json({ message: "Server error" });
-
   }
 };
 
@@ -403,30 +410,35 @@ export const getTestimonials = async (req, res) => {
   }
 };
 
-export const updateTestimonial = async (req,res)=>{
-      const handleFileUpload = () => {
-                return new Promise((resolve, reject) => {
-                upload(req, res, (err) => {
-                    if (err) return reject(err);
-                    resolve();
-                });
-                });
-            };
-  try{
-     await handleFileUpload();
-    const {testimonyId} = req.params;
-    const {name, about,description} = req.body;
+export const updateTestimonial = async (req, res) => {
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
+  try {
+    await handleFileUpload();
+    const { testimonyId } = req.params;
+    const { name, about, description } = req.body;
     const testimonial = await Testimony.findById(testimonyId);
     if (!testimonial) {
       return res.status(404).json({ message: "Testimonial not found" });
-      }
-     const file = req.file;
+    }
+    const file = req.file;
     let newImageUrl = testimonial.image_url;
 
     if (file) {
       // Delete old image if it exists
-      if (testimonial.image_url && testimonial.image_url.includes(bucket.name)) {
-        const urlParts = testimonial.image_url.split(`https://storage.googleapis.com/${bucket.name}/`);
+      if (
+        testimonial.image_url &&
+        testimonial.image_url.includes(bucket.name)
+      ) {
+        const urlParts = testimonial.image_url.split(
+          `https://storage.googleapis.com/${bucket.name}/`
+        );
         const oldFilePath = urlParts[1];
         if (oldFilePath) {
           try {
@@ -460,42 +472,47 @@ export const updateTestimonial = async (req,res)=>{
 
         stream.end(file.buffer);
       });
-    }  
-    const updateTestimonial = await Testimony.findByIdAndUpdate(testimonyId, { name, about, description, image_url: newImageUrl }, { new: true });
+    }
+    const updateTestimonial = await Testimony.findByIdAndUpdate(
+      testimonyId,
+      { name, about, description, image_url: newImageUrl },
+      { new: true }
+    );
     res.status(201).json(updateTestimonial);
-
-
-
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error updating testimonial:", err.message);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
-export const deleteTestimonial = async (req, res) =>{
-  try{
-    const {testimonialId} = req.params;
+export const deleteTestimonial = async (req, res) => {
+  try {
+    const { testimonialId } = req.params;
     const testimony = await Testimony.findById(testimonialId);
-    if(!testimonialId){
-      return res.status(404).json({message: "Testimonial not found"});
+    if (!testimonialId) {
+      return res.status(404).json({ message: "Testimonial not found" });
     }
-    if(testimony.image_url){
-      const urlParts = testimony.image_url.split(`https://storage.googleapis.com/${bucket.name}/`);
+    if (testimony.image_url) {
+      const urlParts = testimony.image_url.split(
+        `https://storage.googleapis.com/${bucket.name}/`
+      );
       const filePath = urlParts[1];
       if (filePath) {
-        await bucket.file(filePath).delete().catch((err) => {
-          console.warn("Warning: Failed to delete image from Firebase:", err.message);
-        });
+        await bucket
+          .file(filePath)
+          .delete()
+          .catch((err) => {
+            console.warn(
+              "Warning: Failed to delete image from Firebase:",
+              err.message
+            );
+          });
       }
     }
     await Testimony.findByIdAndDelete(testimonialId);
-    res.status(200).json({message: "Testimonial deleted successfully"});
-  }
-  catch(err){
+    res.status(200).json({ message: "Testimonial deleted successfully" });
+  } catch (err) {
     console.error("Error deleting testimonial:", err.message);
     res.status(500).json({ message: "Server error" });
-
   }
-
-}
+};

@@ -467,16 +467,16 @@ export const getYearDayWiseImages = async (req, res) => {
   }
 };
 export const getImagesByItsYear = async (req, res) => {
-  try{
-      const {yearId} = req.params;
-       const images = await Archive.find({ year_ref: yearId })
+  try {
+    const { yearId } = req.params;
+    const images = await Archive.find({ year_ref: yearId })
       .populate({
         path: "year_ref",
-        select: "year"  
+        select: "year",
       })
       .populate({
         path: "dayNumber_ref",
-        select: "dayLabel"  
+        select: "dayLabel",
       });
 
     if (!images || images.length === 0) {
@@ -485,23 +485,29 @@ export const getImagesByItsYear = async (req, res) => {
 
     // Transform the data to a cleaner format
     const result = {
-      year: images[0].year_ref.year,  
-      images: images.map(img => ({
+      year: images[0].year_ref.year,
+      images: images.map((img) => ({
         id: img._id,
         url: img.image_url,
-
-      }))
+      })),
     };
 
     res.status(200).json({
       message: "Images found for year",
-      archive: result
+      archive: result,
     });
-      
-  }
-  catch(err){
+  } catch (err) {
     console.error("Error getting images by year:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
+export const getYear = async (req, res) => {
+  try {
+    const year = await Year.find();
+    res.status(200).json({ year });
+  } catch (err) {
+    console.error("Error getting year:", err.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
