@@ -9,6 +9,9 @@ import speakerRoute from './route/speaskerRoute.js';
 import registerRoute from './route/resgistrationRoute.js';
 import archiveRoute from './route/archiveRoute.js';
 import newsAndBlogRoute from './route/newsAndBlogRoute.js';
+import homePageRoute from './route/home/homePageRoute.js';
+import videoBlogRoute from './route/videoBlogRoute.js';
+import contactRoute from './route/contactRoute.js';
 
 
 const app = express();
@@ -35,6 +38,9 @@ app.use("/api/v1/speaker",speakerRoute)
 app.use("/api/v1/registration",registerRoute)
 app.use("/api/v1/archive",archiveRoute)
 app.use("/api/v1/newsAndBlog",newsAndBlogRoute)
+app.use("/api/v1/homePage",homePageRoute)
+app.use("/api/v1/videoBlog",videoBlogRoute)
+app.use("/api/v1/sendMail",contactRoute)
 
 
 app.listen(PORT, () => {

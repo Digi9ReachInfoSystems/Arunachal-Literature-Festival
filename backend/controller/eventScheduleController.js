@@ -8,6 +8,8 @@ export const addEvent = async (req, res) => {
             req.body;
               const start = new Date(startDate);
                 const end = new Date(endDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             return res.status(400).json({ message: "Invalid date format" });
         }
@@ -28,7 +30,18 @@ export const addEvent = async (req, res) => {
         if (existingEvent) {
             return res.status(409).json({ message: "Event with same name and dates already exists" });
         }
-
+         const ongoingEvent = await EventsCollection.findOne({
+          $or: [
+            { startDate: { $lte: end }, endDate: { $gte: start } }, // Overlapping dates
+            { endDate: { $gte: today } } // Ongoing or future events
+          ]
+        });
+          if (ongoingEvent) {
+            return res.status(400).json({ 
+                message: `Cannot add new event. Conflicting with "${ongoingEvent.name}" (until ${ongoingEvent.endDate.toDateString()})`
+            });
+        }
+        
 
         const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
        
@@ -96,9 +109,9 @@ export const getEvent = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 }
-export const getTotalEvent = async (req,res)=>{
-      try {
-    // First get all time entries with populated references
+export const getTotalEvent = async (req, res) => {
+  try {
+   
     const timeEntries = await TimeCollection.find()
       .populate('day_ref')
       .populate('event_ref');
@@ -106,14 +119,21 @@ export const getTotalEvent = async (req,res)=>{
     if (timeEntries.length === 0) {
       return res.status(404).json({ message: "No time entries found" });
     }
-    
-  
-    const eventData = timeEntries[0].event_ref.toObject();
-    
 
+   
+    const firstValidEntry = timeEntries.find(entry => entry.event_ref);
+    
+    if (!firstValidEntry) {
+      return res.status(404).json({ message: "No valid event references found in time entries" });
+    }
+
+    const eventData = firstValidEntry.event_ref.toObject();
     const daysMap = new Map();
     
     timeEntries.forEach(entry => {
+     
+      if (!entry.day_ref) return;
+      
       const dayId = entry.day_ref._id.toString();
       
       if (!daysMap.has(dayId)) {
@@ -122,7 +142,6 @@ export const getTotalEvent = async (req,res)=>{
         daysMap.set(dayId, day);
       }
       
-   
       const timeEntry = entry.toObject();
       delete timeEntry.event_ref;
       delete timeEntry.day_ref;
@@ -130,17 +149,17 @@ export const getTotalEvent = async (req,res)=>{
       daysMap.get(dayId).times.push(timeEntry);
     });
     
-    
     const days = Array.from(daysMap.values());
-    
-
     days.sort((a, b) => a.dayNumber - b.dayNumber);
     
- 
     days.forEach(day => {
-      day.times.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+      day.times.sort((a, b) => {
+       
+        const timeA = a.startTime ? new Date(`1970-01-01T${a.startTime}`) : 0;
+        const timeB = b.startTime ? new Date(`1970-01-01T${b.startTime}`) : 0;
+        return timeA - timeB;
+      });
     });
-    
     
     const response = {
       event: eventData,
@@ -171,6 +190,47 @@ export const addTime = async (req, res) => {
         const{eventId} = req.params;
         const { eventDay_ref } = req.params;
         const { startTime, endTime,title,description,type,speaker } = req.body;
+         const toMinutes = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const newStart = toMinutes(startTime);
+        const newEnd = toMinutes(endTime);
+
+        // Validate time format
+        if (isNaN(newStart) || isNaN(newEnd)) {
+            return res.status(400).json({ message: "Invalid time format (use HH:MM)" });
+        }
+
+        // Check if end time is after start time
+        if (newEnd <= newStart) {
+            return res.status(400).json({ message: "End time must be after start time" });
+        }
+      // Check for conflicting times
+        const existingTimes = await TimeCollection.find({ 
+             day_ref: eventDay_ref,
+            event_ref: eventId,
+         
+        });
+
+        const hasConflict = existingTimes.some(existing => {
+            const existingStart = toMinutes(existing.startTime);
+            const existingEnd = toMinutes(existing.endTime);
+            
+            return (
+                (newStart >= existingStart && newStart < existingEnd) ||
+                (newEnd > existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            );
+        });
+
+        if (hasConflict) {
+            return res.status(409).json({ 
+                message: "Time slot conflicts with an existing event",
+                suggestion: "Please choose a different time slot"
+            });
+        }
         const time = new TimeCollection({
             day_ref:eventDay_ref,
             event_ref:eventId,
@@ -248,7 +308,49 @@ export const updateEvent = async (req, res) => {
 export const updateTime = async (req, res) => {
     try {
         const { timeId } = req.params;
+        const {day_ref} = req.params;
         const { startTime, endTime,title,description,type,speaker } = req.body;
+       const toMinutes = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const newStart = toMinutes(startTime);
+        const newEnd = toMinutes(endTime);
+
+        // Validate time format
+        if (isNaN(newStart) || isNaN(newEnd)) {
+            return res.status(400).json({ message: "Invalid time format (use HH:MM)" });
+        }
+
+        // Check if end time is after start time
+        if (newEnd <= newStart) {
+            return res.status(400).json({ message: "End time must be after start time" });
+        }
+      // Check for conflicting times
+        const existingTimes = await TimeCollection.find({ 
+             day_ref: day_ref,
+            _id: { $ne: timeId }
+         
+        });
+
+        const hasConflict = existingTimes.some(existing => {
+            const existingStart = toMinutes(existing.startTime);
+            const existingEnd = toMinutes(existing.endTime);
+            
+            return (
+                (newStart >= existingStart && newStart < existingEnd) ||
+                (newEnd > existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            );
+        });
+
+        if (hasConflict) {
+            return res.status(409).json({ 
+                message: "Time slot conflicts with an existing event",
+                suggestion: "Please choose a different time slot"
+            });
+        }
         const time = await TimeCollection.findById(timeId);
         if (!time) {
             return res.status(404).json({ message: "Time not found" });
@@ -413,4 +515,61 @@ export const genratePdf = async(req,res)=>{
   }
 }
 
-// export const getDayEven
+export const deleteTime = async (req, res) =>{
+  try{
+    const { timeId } = req.params;
+    const time = await TimeCollection.findByIdAndDelete(timeId);
+    if(!time){
+      return res.status(404).json({ message: 'Time not found' });
+    }
+    res.status(200).json({ message: 'Time deleted successfully' });
+
+  }
+  catch(err){
+    console.error('Error in deleteTime:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+}
+export const getTime = async (req, res) =>{
+  try{
+    const time = await TimeCollection.find();
+    if(!time){
+      return res.status(404).json({ message: 'Time not found' });
+      }
+      res.status(200).json(time);
+      }
+      catch(err){
+        console.error('Error in getTime:', err.message);
+        res.status(500).json({ message: 'Server error', error: err.message });
+      }
+}
+
+export const getFullEventDetails = async (req, res) => {
+  try {
+  
+
+    const events  = await EventsCollection.find();
+    if (!events || events.length === 0) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const event = events[0];
+    
+    const eventDays = await EventDayCollection.find({ event_ref: event._id });
+    const timeSlots = await TimeCollection.find({ event_ref: event._id }).populate("day_ref");
+   const structuredDays = eventDays.map(day => {
+      return {
+        ...day.toObject(),
+        timeSlots: timeSlots.filter(slot => slot.day_ref._id.toString() === day._id.toString())
+      };
+    });
+
+    res.status(200).json({
+      event,
+      days: structuredDays
+    });
+  } catch (err) {
+    console.error("Error fetching full event details:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
