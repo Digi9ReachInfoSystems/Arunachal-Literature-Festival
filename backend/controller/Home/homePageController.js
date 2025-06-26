@@ -294,9 +294,7 @@ export const addPoetry = async (req, res) => {
   try {
     const { text, author } = req.body;
     const existing = await Poetry.find();
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Poetry already exists" });
-    }
+   
     const newPoetry = await Poetry.create({ text, author });
     res.status(201).json(newPoetry);
   } catch (error) {

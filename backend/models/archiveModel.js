@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 const yearSchema = new mongoose.Schema({
   year: { type: Number, required: true },
   month: { type: Number, required: true },
+  days: [{ 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "DayNumber"
+  }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
