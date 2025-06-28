@@ -351,9 +351,7 @@ export const addTestimonial = async (req, res) => {
     await handleFileUpload();
     const { name, about, description } = req.body;
     const existing = await Testimony.find();
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Testimonial already exists" });
-    }
+
     const file = req.file;
     let imageUrl = "";
     if (file) {
