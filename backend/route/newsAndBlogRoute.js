@@ -1,6 +1,6 @@
 import express from "express";
 import {protect,restrictTo} from "../utils/auth.js"
-import { addCategory, addNewsAndBlog, deleteNewsAndBlog, getCategories, getNewsAndBlog, updateNewsAndBlog } from "../controller/newsAndBlogController.js";
+import { addCategory, addNewsAndBlog, deleteNewsAndBlog, getCategories, getNewsAndBlog, getNewsAndBlogById, updateNewsAndBlog } from "../controller/newsAndBlogController.js";
 
 const newsAndBlogRoute = express.Router();
 
@@ -10,6 +10,7 @@ newsAndBlogRoute.post("/updateNewsAndBlog/:newsAndBlogId",protect,restrictTo("ad
 newsAndBlogRoute.delete("/deleteNewsAndBlog/:newsAndBlogId",protect,restrictTo("admin"),deleteNewsAndBlog);
 newsAndBlogRoute.post("/addCategory",protect,restrictTo("admin"),addCategory);
 newsAndBlogRoute.get("/getCategory",getCategories);
+newsAndBlogRoute.get("/getNewsAndBlogById/:newsAndBlogId",protect,restrictTo("admin","user"),getNewsAndBlogById);
 
 
 export default newsAndBlogRoute

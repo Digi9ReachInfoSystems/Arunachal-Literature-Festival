@@ -99,13 +99,14 @@ export const addNewsAndBlog = async (req, res) => {
   try {
     await handleFileUpload();
 
-    const { title, contentType, publishedDate, contents, link,category_ref } = req.body;
+    const { title, contentType, publishedDate, contents, link, category_ref } =
+      req.body;
 
-   const categoryExists = await Category.findById(category_ref);
+    const categoryExists = await Category.findById(category_ref);
     if (!categoryExists) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid category ID'
+        message: "Invalid category ID",
       });
     }
     let newsAndBlog;
@@ -293,6 +294,20 @@ export const deleteNewsAndBlog = async (req, res) => {
     res.status(200).json({ message: "News and blog deleted successfully" });
   } catch (err) {
     console.error("Error deleting news and blog:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getNewsAndBlogById = async (req, res) => {
+  try {
+    const { newsAndBlogId } = req.params;
+    const newsAndBlog = await NewsAndBlog.findById(newsAndBlogId);
+    if (!newsAndBlog) {
+      return res.status(404).json({ message: "News and blog not found" });
+    }
+    res.status(200).json(newsAndBlog);
+  } catch (error) {
+    console.error("Error getting news and blog by ID:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
