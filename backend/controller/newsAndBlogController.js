@@ -99,7 +99,7 @@ export const addNewsAndBlog = async (req, res) => {
   try {
     await handleFileUpload();
 
-    const { title, contentType, publishedDate, contents, link, category_ref } =
+    const { title, contentType, publishedDate, contents, link, category_ref,author } =
       req.body;
 
     const categoryExists = await Category.findById(category_ref);
@@ -166,6 +166,7 @@ export const addNewsAndBlog = async (req, res) => {
         contents,
         image_url: imageUrl,
         category_ref,
+        author
       });
     } else {
       return res.status(400).json({ message: "Invalid content type" });
@@ -311,3 +312,22 @@ export const getNewsAndBlogById = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+export const getBlogOnlyById = async (req, res) =>{
+  try {
+    const { blogId } = req.params;
+    const blog = await NewsAndBlog.findById(blogId);
+    if (!blog) {
+      return res.status(404).json({ message: "Blog not found" });
+      }
+    if(blog.contentType === "blog"){
+      res.status(200).json(blog);
+    }else{
+      return res.status(404).json({ message: "Blog not found" });
+    }
+    } catch (error) {
+    console.error("Error getting blog by ID:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+}

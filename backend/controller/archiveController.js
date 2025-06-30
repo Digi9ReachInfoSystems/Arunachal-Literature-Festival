@@ -504,10 +504,17 @@ export const getImagesByItsYear = async (req, res) => {
 
 export const getYear = async (req, res) => {
   try {
+<<<<<<< HEAD
        const years = await Year.find().sort({ year: -1, month: -1 });
     const yearIds = years.map(y => y._id);
     const days = await DayNumber.find({ year_ref: { $in: yearIds } });
  
+=======
+    const years = await Year.find().sort({ year: -1, month: -1 });
+    const yearIds = years.map(y => y._id);
+    const days = await DayNumber.find({ year_ref: { $in: yearIds } });
+    // Group days by year_ref
+>>>>>>> 76889fe23882d48b0af2d6e0d45d2997499e58be
     const daysByYear = days.reduce((acc, day) => {
       const yid = day.year_ref.toString();
       if (!acc[yid]) acc[yid] = [];
@@ -522,7 +529,7 @@ export const getYear = async (req, res) => {
     }));
     res.status(200).json({ years: result });
   } catch (err) {
-    console.error("Error getting year:", err.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error getting years and days:", err.message);
+    res.status(500).json({ message: "Internal Server Errors" });
   }
 };

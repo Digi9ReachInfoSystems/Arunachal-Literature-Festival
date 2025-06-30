@@ -28,6 +28,12 @@ const newsAndBlogSchema = new mongoose.Schema({
         required: true
 
     },
+    author: {
+        type: String,
+        required: true,
+        default: "Arunachal literature"
+    },
+
     title: {
         type: String,
         required: true
