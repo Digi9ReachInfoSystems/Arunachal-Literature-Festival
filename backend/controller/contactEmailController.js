@@ -143,3 +143,86 @@ export const deleteSenderMail = async (req, res) => {
     });
   }
 };
+
+export const getAllContactMessages = async (req, res) => {
+  try {
+    const messages = await contactUs.find({});
+    return res.status(200).json({
+      success: true,
+      message: "All contact messages fetched successfully",
+      data: messages,
+    });
+  } catch (err) {
+    console.error("Error in getAllContactMessages:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const deleteContactMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await contactUs.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Contact message not found",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Contact message deleted successfully",
+      data: deleted,
+    });
+  } catch (err) {
+    console.error("Error in deleteContactMessage:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getAllContactEmails = async (req, res) => {
+  try {
+    const contacts = await contactUs.find({}, 'email'); // Only fetch the email field
+    const emails = contacts.map(contact => contact.email);
+    return res.status(200).json({
+      success: true,
+      message: "All contact emails fetched successfully",
+      data: emails,
+    });
+  } catch (err) {
+    console.error("Error in getAllContactEmails:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getContactMessageByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const message = await contactUs.findOne({ email });
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "No contact message found for this email.",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Contact message fetched successfully",
+      data: message,
+    });
+  } catch (err) {
+    console.error("Error in getContactMessageByEmail:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
