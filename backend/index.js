@@ -16,11 +16,27 @@ import contactRoute from './route/contactRoute.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://192.168.1.21:3000",
+  "http://192.168.0.208:3000"
+ 
+];
 dotenv.config();
-app.use(cors(
- {   origin: "http://localhost:3000",
-    credentials: true,}
-));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, 
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
