@@ -1,5 +1,6 @@
-import { contactUs, reply, Sender } from "../models/contactUsModel.js";
-import { contactMail } from "../utils/sendEmail.js";
+import { contactUs , Reply, Sender } from "../models/contactUsModel.js";
+
+import { contactMail, replyMail } from "../utils/sendEmail.js";
 
 export const contactUsController = async (req, res) => {
   try {
@@ -221,3 +222,46 @@ export const getContactMessageByEmail = async (req, res) => {
     });
   }
 };
+
+
+export const ReplayById = async (req, res) =>{
+  try {
+    const { id } = req.params;
+    const contact = await contactUs.findById(id);
+    const { message } = req.body;
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: "No contact found with this id",
+        });
+        }
+      if(contact.isReplied){
+        return res.status(400).json({
+          success: false,
+          message: "This contact has already been replied to",
+        });
+      }
+      await contactUs.findByIdAndUpdate(id, { isReplied: true }, { new: true });
+      await Reply.create({
+        name: contact.name,
+        email: contact.email,
+        message,
+        phone: contact.phone,
+        contactUs: id
+      });
+         
+      replyMail( contact.email, contact.name,message )
+
+      return res.status(201).json({
+        success: true,
+        message: "Replied successfully",
+      });
+
+  } catch (err) {
+    console.error("Error in ReplayById:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+}
