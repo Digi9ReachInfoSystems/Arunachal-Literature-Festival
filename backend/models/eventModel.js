@@ -91,4 +91,19 @@ const TimeCollectionSchema = new mongoose.Schema({
   updatedAt: Date,
 });
 const TimeCollection = mongoose.model("TimeCollection", TimeCollectionSchema);
-export { EventsCollection, EventDayCollection, TimeCollection };
+
+const eventBroucherSchema = new mongoose.Schema({
+  event_ref: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "EventsCollection",
+    },
+    pdf_url:{
+      type:String,
+      required:true,
+    },
+    createdAt: Date,
+    updatedAt: Date,
+  
+})
+const EventBroucher = mongoose.model("EventBroucher", eventBroucherSchema);
+export { EventsCollection, EventDayCollection, TimeCollection,EventBroucher };
