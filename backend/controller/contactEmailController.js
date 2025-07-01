@@ -25,10 +25,12 @@ export const contactUsController = async (req, res) => {
       email,
       message,
       phone: phone || null,
-      senderMail: sender[0].mail,
+      senderMail: sender.map((s) => s.mail).join(", "),
     });
-
-    await contactMail(name, email, phone, message, sender[0].mail);
+   await Promise.all(
+  sender.map(s => contactMail(name, email, phone, message, s.mail))
+);
+   
 
     return res.status(201).json({
       success: true,
@@ -50,14 +52,7 @@ export const contactUsController = async (req, res) => {
 export const addSenderMail = async (req, res) => {
   try {
     const mail = req.body;
-    const existingSender = await Sender.findOne();
-
-    if (existingSender) {
-      return res.status(400).json({
-        success: false,
-        message: "Only one sender is allowed. Delete the existing one first.",
-      });
-    }
+   
     const senderMail = await Sender.create(mail);
     return res.status(201).json({
       success: true,

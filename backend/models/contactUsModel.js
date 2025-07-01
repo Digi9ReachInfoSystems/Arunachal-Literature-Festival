@@ -6,7 +6,7 @@ const contactUsSchmea = new mongoose.Schema({
     required: true,
   },
   senderMail:{
-    type:String,
+    type:[String],
     required:true
   },
 
