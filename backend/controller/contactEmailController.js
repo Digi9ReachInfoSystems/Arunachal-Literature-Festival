@@ -235,12 +235,7 @@ export const ReplayById = async (req, res) =>{
         message: "No contact found with this id",
         });
         }
-      if(contact.isReplied){
-        return res.status(400).json({
-          success: false,
-          message: "This contact has already been replied to",
-        });
-      }
+
       await contactUs.findByIdAndUpdate(id, { isReplied: true }, { new: true });
       await Reply.create({
         name: contact.name,
