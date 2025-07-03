@@ -21,7 +21,7 @@ export const addEvent = async (req, res) => {
 
 
         // Check for duplicate events
-        const existingEvent = await EventsCollection.findOne({
+        const existingEvent = await EventsCollection.find({
             name,
             startDate: start,
             endDate: end
