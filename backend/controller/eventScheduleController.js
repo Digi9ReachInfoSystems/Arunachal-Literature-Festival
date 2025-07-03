@@ -1,50 +1,49 @@
 import { EventDayCollection, EventsCollection,TimeCollection } from "../models/eventModel.js";
 import PDFDocument from 'pdfkit'; // Assuming pdfdoc is PDFKit
 import { DateTime } from 'luxon'; 
+import mongoose from 'mongoose';
 
 export const addEvent = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-        const { name, description, year, month, startDate, endDate } =
-            req.body;
-              const start = new Date(startDate);
-                const end = new Date(endDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            return res.status(400).json({ message: "Invalid date format" });
+        const { name, description, year, month, startDate, endDate } = req.body;
+
+        // --- VALIDATION ---
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0); // Use UTC to avoid timezone issues
+
+        if (isNaN(start.getTime())) throw new Error("Invalid start date");
+        if (isNaN(end.getTime())) throw new Error("Invalid end date");
+        if (end <= start) throw new Error("End date must be after start date");
+
+        // --- CONFLICT CHECK (FIXED) ---
+        // Checks for ANY overlapping event (same name OR overlapping dates)
+        const conflictingEvent = await EventsCollection.findOne({
+            $or: [
+                { name }, // Same name (even if dates differ)
+                { 
+                    // Overlapping date range (correct logic)
+                    $and: [
+                        { startDate: { $lt: end } },
+                        { endDate: { $gt: start } }
+                    ]
+                }
+            ]
+        }).session(session); // Include session for transaction
+
+        if (conflictingEvent) {
+            throw new Error(
+                `Event conflict: "${conflictingEvent.name}" (${conflictingEvent.startDate.toISOString()} - ${conflictingEvent.endDate.toISOString()})`
+            );
         }
 
-        if (end < start) {
-            return res.status(400).json({ message: "End date must be after start date" });
-        }
-
-
-
-        // Check for duplicate events
-        const existingEvent = await EventsCollection.find({
-            name,
-            startDate: start,
-            endDate: end
-        });
-
-        if (existingEvent) {
-            return res.status(409).json({ message: "Event with same name and dates already exists" });
-        }
-         const ongoingEvent = await EventsCollection.findOne({
-          $or: [
-            { startDate: { $lte: end }, endDate: { $gte: start } }, // Overlapping dates
-            { endDate: { $gte: today } } // Ongoing or future events
-          ]
-        });
-          if (ongoingEvent) {
-            return res.status(400).json({ 
-                message: `Cannot add new event. Conflicting with "${ongoingEvent.name}" (until ${ongoingEvent.endDate.toDateString()})`
-            });
-        }
-        
-
+        // --- CREATE EVENT (TRANSACTION-SAFE) ---
         const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
-       
+
         const event = new EventsCollection({
             name,
             description,
@@ -54,29 +53,48 @@ export const addEvent = async (req, res) => {
             endDate: end,
             totalDays,
         });
-        await event.save();
-         const eventDayDocs = [];
-        for (let i = 0; i < totalDays; i++) {
-        const dayDate = new Date(startDate);
-        dayDate.setDate(dayDate.getDate() + i);
-            eventDayDocs.push({
+
+        await event.save({ session });
+
+        // --- CREATE EVENT DAYS (BATCH + TRANSACTION) ---
+        const eventDayDocs = Array.from({ length: totalDays }, (_, i) => {
+            const dayDate = new Date(start);
+            dayDate.setDate(dayDate.getDate() + i);
+
+            return {
                 event_ref: event._id,
                 dayNumber: i + 1,
                 name: `Day ${i + 1}`,
-                description: `Day ${i + 1} description`,
+                description: description || `Day ${i + 1} description`, // Use event desc if available
+          
                 createdAt: new Date(),
                 updatedAt: new Date(),
-            })
-            
-        }
-        await EventDayCollection.insertMany(eventDayDocs);
+            };
+        });
 
-        res.status(200).json({ message: "Event added successfully" });
+        await EventDayCollection.insertMany(eventDayDocs, { session });
+
+        // --- COMMIT IF EVERYTHING WORKS ---
+        await session.commitTransaction();
+        res.status(201).json({ success: true, eventId: event._id });
+
     } catch (error) {
-        console.error("Error adding event:", error.message);
-        res.status(500).json({ message: "Server error" });
+        // --- ROLLBACK ON FAILURE ---
+        await session.abortTransaction();
+        console.error("Event creation failed:", error.message);
+
+        // --- PRECISE ERROR RESPONSES ---
+        const statusCode = error.message.includes("Invalid") ? 400 : 
+                          error.message.includes("conflict") ? 409 : 500;
+        
+        res.status(statusCode).json({ 
+            success: false, 
+            error: error.message 
+        });
+    } finally {
+        session.endSession();
     }
-}
+};
 
 export const updateEventDay = async (req, res) => {
     try {
