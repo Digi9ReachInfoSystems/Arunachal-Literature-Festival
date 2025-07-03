@@ -254,15 +254,20 @@ export const updateVideoBlog = async (req, res) => {
       });
     });
   };
+
   try {
     await handleFileUpload();
+
     const { videoId } = req.params;
     const { title, videoType, addedAt, youtubeUrl } = req.body;
+
     const videoBlog = await VideoBlog.findById(videoId);
     if (!videoBlog) {
       return res.status(404).json({ message: "Video blog not found" });
     }
+
     let videoBlogUpdate;
+
     if (videoType === "youtube") {
       const cleanedUrl = cleanYouTubeUrl(youtubeUrl);
       videoBlogUpdate = await VideoBlog.findByIdAndUpdate(
@@ -275,29 +280,42 @@ export const updateVideoBlog = async (req, res) => {
         },
         { new: true }
       );
-      return res
-        .status(201)
-        .json("youtube video updated successfully", videoBlogUpdate);
+      return res.status(200).json({
+        message: "YouTube video updated successfully",
+        videoBlog: videoBlogUpdate,
+      });
+
     } else if (videoType === "video") {
-      if (!req.files || !req.files.video || !req.files.thumbnail) {
-        return res.status(400).json({
-          message: "Both video and thumbnail files are required",
-        });
+      let videoFile = null;
+      let thumbnailFile = null;
+      let videoUrl = videoBlog.video_url;
+      let thumbnailUrl = videoBlog.imageUrl;
+
+      if (req.files) {
+        if (req.files.video) {
+          videoFile = req.files.video[0];
+        }
+        if (req.files.thumbnail) {
+          thumbnailFile = req.files.thumbnail[0];
+        }
+
+        const deletePromises = [];
+        if (videoFile && videoBlog.video_url) {
+          deletePromises.push(deleteFileFromFirebase(videoBlog.video_url));
+        }
+        if (thumbnailFile && videoBlog.imageUrl) {
+          deletePromises.push(deleteFileFromFirebase(videoBlog.imageUrl));
+        }
+        await Promise.all(deletePromises);
+
+        if (videoFile) {
+          videoUrl = await uploadFileToFirebase(videoFile, "VideoBlog/videos");
+        }
+        if (thumbnailFile) {
+          thumbnailUrl = await uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails");
+        }
       }
-      const videoFile = req.files.video[0];
-      const thumbnailFile = req.files.thumbnail[0];
-      const deletePromises = [];
-      if (videoBlog.video_url) {
-        deletePromises.push(deleteFileFromFirebase(videoBlog.video_url));
-      }
-      if (videoBlog.imageUrl) {
-        deletePromises.push(deleteFileFromFirebase(videoBlog.imageUrl));
-      }
-      await Promise.all(deletePromises);
-      const [videoUrl, thumbnailUrl] = await Promise.all([
-        uploadFileToFirebase(videoFile, "VideoBlog/videos"),
-        uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails"),
-      ]);
+
       videoBlogUpdate = await VideoBlog.findByIdAndUpdate(
         videoId,
         {
@@ -309,12 +327,16 @@ export const updateVideoBlog = async (req, res) => {
         },
         { new: true }
       );
-      return res
-        .status(201)
-        .json("video updated successfully", videoBlogUpdate);
+
+      return res.status(200).json({
+        message: "Video updated successfully",
+        videoBlog: videoBlogUpdate,
+      });
+
     } else {
-      res.status(400).json({ message: "Invalid video type" });
+      return res.status(400).json({ message: "Invalid video type" });
     }
+
   } catch (err) {
     console.error("Error updating video blog:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
