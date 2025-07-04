@@ -23,6 +23,7 @@ const allowedOrigins = [
  
 ];
 dotenv.config();
+await connectDB();
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -40,7 +41,7 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-connectDB();
+
 app.use(cookieParser());
 
 
