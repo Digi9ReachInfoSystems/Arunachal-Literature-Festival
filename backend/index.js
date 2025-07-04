@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   "http://localhost:3000",
   "http://192.168.1.21:3000",
-  "http://192.168.0.208:3000"
+  process.env.FRONTEND_URL || "https://arunachalwebapp.vercel.app",
  
 ];
 dotenv.config();
