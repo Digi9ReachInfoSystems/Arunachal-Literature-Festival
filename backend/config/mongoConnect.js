@@ -4,11 +4,18 @@ dotenv.config();
 
 
 const connectDB = async ()=>{
-try {
-    await mongoose.connect(process.env.MONGO_URI);
-    app.listen(3000, () => console.log("App running"));
-  } catch (err) {
-    console.error("DB connection failed:", err);
-  }
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+          
+        
+            socketTimeoutMS: 45000,
+            serverSelectionTimeoutMS: 30000,
+        });
+        console.log("MongoDB connected successfully");
+
+    }
+    catch(err){
+        console.error("mongoDB connection failed",err.message);
+    }
 }
 export default connectDB;
