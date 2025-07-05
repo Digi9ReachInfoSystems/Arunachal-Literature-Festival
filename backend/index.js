@@ -20,7 +20,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://192.168.1.21:3000",
   "https://arunachalwebapp.vercel.app",
-  process.env.FRONTEND_URL || "https://arunchalwebapp.gully2global.in",
+ "https://arunchalwebapp.gully2global.in",
  
 ];
 dotenv.config();
