@@ -71,5 +71,14 @@ const restrictTo = (...roles) => {
     next();
   };
 };
+// Middleware to check cookie consent
+const checkCookieConsent = (req, res, next) => {
+  // Check if user has given consent (stored in a separate consent cookie)
+  const hasConsent = req.signedCookies.userID !== undefined;
+  
+  // Attach consent status to request object for later use
+  req.hasCookieConsent = hasConsent;
+  next();
+};
 
-export { protect, restrictTo, generateToken };
+export { protect, restrictTo, generateToken,checkCookieConsent };
