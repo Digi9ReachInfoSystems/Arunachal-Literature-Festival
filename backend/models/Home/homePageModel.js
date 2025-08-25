@@ -26,7 +26,7 @@ const BannerText = mongoose.model("Text", textSchmea);
 const buttonTextSchema = new mongoose.Schema({
     text: {
         type: String,
-        required: true
+        
     },
     link: {
         type: String,
