@@ -209,19 +209,18 @@ export const deleteEventBroucher = async (req, res) => {
     }
 
     // 2. Delete associated file from Firebase if it exists
-    const deletePromises = [];
     if (eventBrochure.pdf_url) {
-      deletePromises.push(deleteFileFromFirebase(eventBrochure.pdf_url));
+      try {
+        await deleteFileFromFirebase(eventBrochure.pdf_url);
+      } catch (e) {
+        console.error("File delete failed (continuing with DB delete):", e?.message || e);
+      }
     }
 
-    const deleteDbPromise = EventBroucher.findByIdAndDelete(id);
-    deletePromises.push(deleteDbPromise);
+    // 3. Delete brochure document from DB and return the deleted document
+    const deletedDoc = await EventBroucher.findByIdAndDelete(id);
 
-
-    const [deletedBrochure] = await Promise.all(deletePromises);
-
-   
-    if (!deletedBrochure) {
+    if (!deletedDoc) {
       return res.status(500).json({
         success: false,
         message: "Failed to delete event brochure",
@@ -231,7 +230,7 @@ export const deleteEventBroucher = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Event brochure deleted successfully",
-      data: deletedBrochure,
+      data: deletedDoc,
     });
   } catch (error) {
     console.error("Error deleting event brochure:", error);
@@ -239,7 +238,6 @@ export const deleteEventBroucher = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Server error",
-     
     });
   }
 };
