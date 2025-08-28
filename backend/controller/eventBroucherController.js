@@ -184,7 +184,7 @@ export const updateEventBroucher = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Event brochure updated successfully",
-      data: updateEventBroucher,
+      data: updatedBrochure,
     });
   } catch (error) {
     console.error("Error getting event brochure:", error);

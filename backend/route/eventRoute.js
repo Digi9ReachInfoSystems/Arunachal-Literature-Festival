@@ -20,7 +20,7 @@ eventRoute.delete("/deleteTime/:timeId",protect,restrictTo("admin"),deleteTime);
 eventRoute.get("/getTime",protect,restrictTo("admin","user"),getTime);
 eventRoute.get("/getFullEvent",getFullEventDetails);
 eventRoute.post("/addPdf",protect,restrictTo("admin"),addEventBroucher);
-eventRoute.get("/getEventBroucher",getEventBroucher)
+eventRoute.get("/getEventBroucher",getEventBroucher);
 eventRoute.post("/updateEventBroucher/:id",protect,restrictTo("admin","user"),updateEventBroucher);
 eventRoute.delete("/deleteEventBroucher/:id",protect,restrictTo("admin"),deleteEventBroucher);
 
@@ -29,4 +29,4 @@ eventRoute.get("/generatePdf",genratePdf);
 
 
 
-export default eventRoute
+export default eventRoute;

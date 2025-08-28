@@ -17,7 +17,7 @@ import { checkCookieConsent } from "./utils/auth.js";
 import viewCounterRoute from "./route/viewCounterRoute.js";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 const allowedOrigins = [
   "http://localhost:3000",
   "http://192.168.1.21:3000",
