@@ -12,29 +12,7 @@ const EventsCollectionSchema = new mongoose.Schema({
   updatedAt: Date,
   location: String,
 });
-EventsCollectionSchema.post("save", function (doc) {
-  const endDate = new Date(doc.endDate);
-  const now = new Date();
-  const delay = endDate.getTime() - now.getTime() + 86400000; // 24h after end
-
-  if (delay > 0) {
-    setTimeout(async () => {
-      try {
-        // Delete event and its associated days
-        await mongoose.model("EventsCollection").findByIdAndDelete(doc._id);
-        await mongoose
-          .model("EventDayCollection")
-          .deleteMany({ event_ref: doc._id });
-        await mongoose
-          .model("TimeCollection")
-          .deleteMany({ event_ref: doc._id });
-        console.log(`Auto-deleted event: ${doc.name} (ID: ${doc._id})`);
-      } catch (err) {
-        console.error(`Failed to auto-delete event ${doc._id}:`, err);
-      }
-    }, delay);
-  }
-});
+// Auto-delete functionality removed - events will not be automatically deleted
 
 // Update timestamp on modification
 EventsCollectionSchema.pre("save", function (next) {
