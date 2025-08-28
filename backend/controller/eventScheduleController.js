@@ -1,6 +1,6 @@
 import { EventDayCollection, EventsCollection,TimeCollection } from "../models/eventModel.js";
 import PDFDocument from 'pdfkit'; // Assuming pdfdoc is PDFKit
-import { DateTime } from 'luxon'; 
+// Removed unused luxon import
 import mongoose from 'mongoose';
 
 export const addEvent = async (req, res) => {
@@ -108,7 +108,7 @@ export const updateEventDay = async (req, res) => {
         eventDay.description = description;
         eventDay.updatedAt = new Date();
 
-        eventDay.save();
+        await eventDay.save();
      
         res.status(201).json({ message: "Event day updated successfully" });
     } catch (error) {
@@ -400,7 +400,7 @@ export const updateTime = async (req, res) => {
         time.speaker = speaker;
         time.updatedAt = new Date();
 
-        time.save();
+        await time.save();
         res.status(201).json({ message: "Time updated successfully" });
     } catch (error) {
         console.error("Error updating time:", error.message);

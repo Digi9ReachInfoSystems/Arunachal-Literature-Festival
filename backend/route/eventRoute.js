@@ -5,8 +5,6 @@ import { addEventBroucher, deleteEventBroucher, getEventBroucher, updateEventBro
 
 const eventRoute = express.Router();
 
-
-
 eventRoute.post("/addEvent",protect,restrictTo("admin"),addEvent);
 eventRoute.post("/updateEventDay/:eventDayId",protect,restrictTo("admin","user"),updateEventDay);
 eventRoute.post("/addTime/:eventId/day/:eventDay_ref",protect,restrictTo("admin"),addTime);
