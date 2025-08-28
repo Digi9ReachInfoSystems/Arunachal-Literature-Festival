@@ -11,8 +11,15 @@ const userSchema = new mongoose.Schema({
         enum: ["admin", "user"],
         default: "user",
         },
-
-    
+    // Login security fields
+    failedLoginAttempts: {
+        type: Number,
+        default: 0,
+    },
+    lockUntil: {
+        type: Date,
+        default: null,
+    }
 });
 dotenv.config();
 
