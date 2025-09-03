@@ -4,6 +4,7 @@ import {
   Button,
   Poetry,
   Testimony,
+  Intro,
 } from "../../models/Home/homePageModel.js";
 import { bucket } from "../../config/firebaseConfig.js";
 import path from "path";
@@ -509,6 +510,170 @@ export const deleteTestimonial = async (req, res) => {
     res.status(200).json({ message: "Testimonial deleted successfully" });
   } catch (err) {
     console.error("Error deleting testimonial:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Intro: title, description, date, optional image (Firebase)
+export const addIntro = async (req, res) => {
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
+  try {
+    await handleFileUpload();
+    const { title, description, date } = req.body;
+
+    const file = req.file;
+    let imageUrl = "";
+    if (file) {
+      const fileName = Date.now() + path.extname(file.originalname);
+      const destination = `Home/Intro/${fileName}`;
+      const fileUpload = bucket.file(destination);
+
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: { contentType: file.mimetype },
+        });
+        stream.on("error", reject);
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+        stream.end(file.buffer);
+      });
+    }
+
+    const intro = await Intro.create({
+      title,
+      description,
+      date: date ? new Date(date) : undefined,
+      image_url: imageUrl,
+    });
+    res.status(201).json(intro);
+  } catch (error) {
+    console.error("Error adding intro:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getIntro = async (req, res) => {
+  try {
+    const intro = await Intro.find();
+    res.status(200).json(intro);
+  } catch (error) {
+    console.error("Error getting intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateIntro = async (req, res) => {
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
+  try {
+    await handleFileUpload();
+    const { introId } = req.params;
+    const { title, description, date } = req.body;
+    const intro = await Intro.findById(introId);
+    if (!intro) {
+      return res.status(404).json({ message: "Intro not found" });
+    }
+
+    const file = req.file;
+    let newImageUrl = intro.image_url;
+
+    if (file) {
+      if (intro.image_url && intro.image_url.includes(bucket.name)) {
+        const urlParts = intro.image_url.split(
+          `https://storage.googleapis.com/${bucket.name}/`
+        );
+        const oldFilePath = urlParts[1];
+        if (oldFilePath) {
+          try {
+            await bucket.file(oldFilePath).delete();
+          } catch (err) {
+            console.warn("Failed to delete old image:", err.message);
+          }
+        }
+      }
+
+      const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
+      const destination = `Home/Intro/${newFileName}`;
+      const fileUpload = bucket.file(destination);
+
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: { contentType: file.mimetype },
+        });
+        stream.on("error", reject);
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        });
+        stream.end(file.buffer);
+      });
+    }
+
+    const updated = await Intro.findByIdAndUpdate(
+      introId,
+      { title, description, date: date ? new Date(date) : intro.date, image_url: newImageUrl },
+      { new: true }
+    );
+    res.status(201).json(updated);
+  } catch (error) {
+    console.error("Error updating intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteIntro = async (req, res) => {
+  try {
+    const { introId } = req.params;
+    const intro = await Intro.findById(introId);
+    if (!intro) {
+      return res.status(404).json({ message: "Intro not found" });
+    }
+    if (intro.image_url) {
+      const urlParts = intro.image_url.split(
+        `https://storage.googleapis.com/${bucket.name}/`
+      );
+      const filePath = urlParts[1];
+      if (filePath) {
+        await bucket
+          .file(filePath)
+          .delete()
+          .catch((err) => {
+            console.warn(
+              "Warning: Failed to delete image from Firebase:",
+              err.message
+            );
+          });
+      }
+    }
+    await Intro.findByIdAndDelete(introId);
+    res.status(200).json({ message: "Intro deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting intro:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };

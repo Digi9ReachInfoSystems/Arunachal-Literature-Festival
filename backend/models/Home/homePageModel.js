@@ -67,4 +67,24 @@ const testiMoneySchema = new mongoose.Schema({
 })
 const Testimony = mongoose.model("Testimony", testiMoneySchema);
 
-export  {Banner, BannerText, Button, Poetry, Testimony};
+// Intro section: title, description, date, optional image
+const introSchema = new mongoose.Schema({
+    title: {
+        type: String,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    },
+    date: {
+        type: Date,
+        required: true
+    },
+    image_url: {
+        type: String
+    }
+})
+const Intro = mongoose.model("Intro", introSchema);
+
+export  {Banner, BannerText, Button, Poetry, Testimony, Intro};
