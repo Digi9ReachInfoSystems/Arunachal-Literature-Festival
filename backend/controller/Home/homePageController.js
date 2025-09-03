@@ -188,7 +188,7 @@ export const deleteBanner = async (req, res) => {
 
 export const addText = async (req, res) => {
   try {
-    const { bannerText, bannerSubText, location } = req.body;
+    const { bannerText, bannerSubText, location, link } = req.body;
     const existing = await BannerText.find();
     if (existing.length > 0) {
       return res.status(400).json({ message: "Banner already exists" });
@@ -197,6 +197,7 @@ export const addText = async (req, res) => {
       bannerText,
       bannerSubText,
       location,
+      link,
     });
     res.status(201).json(newText);
   } catch (err) {
@@ -216,11 +217,11 @@ export const getText = async (req, res) => {
 };
 export const updateText = async (req, res) => {
   try {
-    const { bannerText, bannerSubText, location } = req.body;
+    const { bannerText, bannerSubText, location, link } = req.body;
     const { bannerId } = req.params;
     const bannerTextUpdate = await BannerText.findByIdAndUpdate(
       bannerId,
-      { bannerText, bannerSubText, location },
+      { bannerText, bannerSubText, location, link },
       { new: true }
     );
     res.status(200).json(bannerTextUpdate);

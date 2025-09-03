@@ -18,6 +18,10 @@ const textSchmea = new mongoose.Schema({
     },
     location: {
         type: String,
+    },
+    link: {
+        type: String,
+        required: false
     }
 
 })
