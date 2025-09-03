@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, restrictTo } from "../../utils/auth.js";
-import { addBanner, addButtonText, addPoetry, addTestimonial, addText, deleteBanner, deleteButtonText, deletePoetry, deleteTestimonial, deleteText, getBanner, getButtonText, getPoetry, getTestimonials, getText, updateBanner, updateButtonText, updatePoetry, updateTestimonial, updateText } from "../../controller/Home/homePageController.js";
+import { addBanner, addButtonText, addPoetry, addTestimonial, addText, deleteBanner, deleteButtonText, deletePoetry, deleteTestimonial, deleteText, getBanner, getButtonText, getPoetry, getTestimonials, getText, updateBanner, updateButtonText, updatePoetry, updateTestimonial, updateText, addIntro, getIntro, updateIntro, deleteIntro } from "../../controller/Home/homePageController.js";
 
 const homePageRoute = express.Router();
 
@@ -25,6 +25,12 @@ homePageRoute.post("/addTestimonial",protect,restrictTo("admin"),addTestimonial)
 homePageRoute.get("/getTestimonial",getTestimonials);
 homePageRoute.post("/updateTestimonial/:testimonyId",protect,restrictTo("admin","user"),updateTestimonial);
 homePageRoute.delete("/deleteTestimonial/:testimonialId",protect,restrictTo("admin"),deleteTestimonial);
+
+// Intro routes
+homePageRoute.post("/addIntro",protect,restrictTo("admin"),addIntro);
+homePageRoute.get("/getIntro",getIntro);
+homePageRoute.post("/updateIntro/:introId",protect,restrictTo("admin","user"),updateIntro);
+homePageRoute.delete("/deleteIntro/:introId",protect,restrictTo("admin"),deleteIntro);
 
 
 
