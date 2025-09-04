@@ -5,6 +5,7 @@ import {
   Poetry,
   Testimony,
   Intro,
+  ContactInfo,
 } from "../../models/Home/homePageModel.js";
 import { bucket } from "../../config/firebaseConfig.js";
 import path from "path";
@@ -675,6 +676,83 @@ export const deleteIntro = async (req, res) => {
     res.status(200).json({ message: "Intro deleted successfully" });
   } catch (error) {
     console.error("Error deleting intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Contact Information CRUD operations
+export const addContactInfo = async (req, res) => {
+  try {
+    const { officeAddress, eventVenue, email, emailLink } = req.body;
+    
+    // Check if contact info already exists (only allow one contact info record)
+    const existing = await ContactInfo.find();
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Contact information already exists. Use update endpoint to modify." });
+    }
+    
+    const contactInfo = await ContactInfo.create({
+      officeAddress,
+      eventVenue,
+      email,
+      emailLink: emailLink || `mailto:${email}`, // Default to mailto link if not provided
+    });
+    res.status(201).json(contactInfo);
+  } catch (error) {
+    console.error("Error adding contact info:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getContactInfo = async (req, res) => {
+  try {
+    const contactInfo = await ContactInfo.find();
+    res.status(200).json(contactInfo);
+  } catch (error) {
+    console.error("Error getting contact info:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateContactInfo = async (req, res) => {
+  try {
+    const { contactInfoId } = req.params;
+    const { officeAddress, eventVenue, email, emailLink } = req.body;
+    
+    const contactInfo = await ContactInfo.findById(contactInfoId);
+    if (!contactInfo) {
+      return res.status(404).json({ message: "Contact information not found" });
+    }
+    
+    const updated = await ContactInfo.findByIdAndUpdate(
+      contactInfoId,
+      { 
+        officeAddress, 
+        eventVenue, 
+        email, 
+        emailLink: emailLink || `mailto:${email}` 
+      },
+      { new: true }
+    );
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("Error updating contact info:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteContactInfo = async (req, res) => {
+  try {
+    const { contactInfoId } = req.params;
+    const contactInfo = await ContactInfo.findById(contactInfoId);
+    if (!contactInfo) {
+      return res.status(404).json({ message: "Contact information not found" });
+    }
+    
+    await ContactInfo.findByIdAndDelete(contactInfoId);
+    res.status(200).json({ message: "Contact information deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting contact info:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, restrictTo } from "../../utils/auth.js";
-import { addBanner, addButtonText, addPoetry, addTestimonial, addText, deleteBanner, deleteButtonText, deletePoetry, deleteTestimonial, deleteText, getBanner, getButtonText, getPoetry, getTestimonials, getText, updateBanner, updateButtonText, updatePoetry, updateTestimonial, updateText, addIntro, getIntro, updateIntro, deleteIntro } from "../../controller/Home/homePageController.js";
+import { addBanner, addButtonText, addPoetry, addTestimonial, addText, deleteBanner, deleteButtonText, deletePoetry, deleteTestimonial, deleteText, getBanner, getButtonText, getPoetry, getTestimonials, getText, updateBanner, updateButtonText, updatePoetry, updateTestimonial, updateText, addIntro, getIntro, updateIntro, deleteIntro, addContactInfo, getContactInfo, updateContactInfo, deleteContactInfo } from "../../controller/Home/homePageController.js";
 
 const homePageRoute = express.Router();
 
@@ -32,6 +32,10 @@ homePageRoute.get("/getIntro",getIntro);
 homePageRoute.post("/updateIntro/:introId",protect,restrictTo("admin","user"),updateIntro);
 homePageRoute.delete("/deleteIntro/:introId",protect,restrictTo("admin"),deleteIntro);
 
-
+// Contact Information routes
+homePageRoute.post("/addContactInfo",protect,restrictTo("admin"),addContactInfo);
+homePageRoute.get("/getContactInfo",getContactInfo);
+homePageRoute.post("/updateContactInfo/:contactInfoId",protect,restrictTo("admin","user"),updateContactInfo);
+homePageRoute.delete("/deleteContactInfo/:contactInfoId",protect,restrictTo("admin"),deleteContactInfo);
 
 export default homePageRoute;
