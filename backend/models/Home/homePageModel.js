@@ -91,4 +91,25 @@ const introSchema = new mongoose.Schema({
 })
 const Intro = mongoose.model("Intro", introSchema);
 
-export  {Banner, BannerText, Button, Poetry, Testimony, Intro};
+// Contact Information schema
+const contactInfoSchema = new mongoose.Schema({
+    officeAddress: {
+        type: String,
+        required: true
+    },
+    eventVenue: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        required: true
+    },
+    emailLink: {
+        type: String,
+        required: false
+    }
+})
+const ContactInfo = mongoose.model("ContactInfo", contactInfoSchema);
+
+export  {Banner, BannerText, Button, Poetry, Testimony, Intro, ContactInfo};
