@@ -64,40 +64,6 @@ app.use(helmet({
   xssFilter: true
 }));
 
-// Lightweight in-memory rate limiter (no external deps)
-const createRateLimiter = ({ windowMs, maxRequests }) => {
-  const ipToTimestamps = new Map();
-  return (req, res, next) => {
-    const now = Date.now();
-    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    const windowStart = now - windowMs;
-
-    const timestamps = ipToTimestamps.get(ip) || [];
-    const recent = timestamps.filter(t => t > windowStart);
-
-    if (recent.length >= maxRequests) {
-      const retryAfterSeconds = Math.ceil((recent[0] + windowMs - now) / 1000);
-      res.setHeader('Retry-After', retryAfterSeconds);
-      res.setHeader('RateLimit-Limit', String(maxRequests));
-      res.setHeader('RateLimit-Remaining', '0');
-      res.setHeader('RateLimit-Reset', String(retryAfterSeconds));
-      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
-    }
-
-    recent.push(now);
-    ipToTimestamps.set(ip, recent);
-
-    // Helpful headers for clients
-    res.setHeader('RateLimit-Limit', String(maxRequests));
-    res.setHeader('RateLimit-Remaining', String(Math.max(0, maxRequests - recent.length)));
-    next();
-  };
-};
-
-// Apply rate limiter globally (safe defaults; override via env)
-const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
-const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
-app.use(createRateLimiter({ windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: RATE_LIMIT_MAX_REQUESTS }));
 
 // CORS configuration
 app.use(
