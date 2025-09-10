@@ -44,19 +44,50 @@ const login = async (req, res) => {
       });
     }
 
+    // If account is locked and lock hasn't expired
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remainingMs = user.lockUntil.getTime() - Date.now();
+      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+      return res.status(423).json({
+        success: false,
+        message: `Account locked. Try again in ${remainingHours} hour(s)`,
+        lockUntil: user.lockUntil,
+      });
+    }
+
     // Compare passwords
     const isPasswordValid = await user.comparePassword(password); // comparePassword must be defined in schema
     if (!isPasswordValid) {
-      return res.status(401).json({
+      // increment failed attempts and lock if threshold reached
+      const newFailedCount = (user.failedLoginAttempts || 0) + 1;
+      user.failedLoginAttempts = newFailedCount;
+      if (newFailedCount >= 5) {
+        user.lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      }
+      await user.save();
+      const remaining = Math.max(0, 5 - newFailedCount);
+      const baseResponse = {
         success: false,
         message: "Incorrect email or password",
-      });
+        remainingAttempts: remaining,
+      };
+      if (user.lockUntil && user.lockUntil > new Date()) {
+        return res.status(423).json({
+          ...baseResponse,
+          message: "Account locked due to too many failed attempts",
+          lockUntil: user.lockUntil,
+        });
+      }
+      return res.status(401).json(baseResponse);
     }
     const expiresAt = new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     );
 
 
+    // Successful login: reset counters
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
     const token = generateToken(user);
 
     res.cookie("token", token, {
@@ -139,10 +170,89 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const editUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, password, confirmPassword, role } = req.body;
+    const currentUser = req.user; // From auth middleware
 
+    // Find the user to be edited
+    const userToEdit = await User.findById(userId);
+    if (!userToEdit) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
+    // Role-based editing permissions
+    // Admin can edit any user, including role changes
+    // Regular users can only edit their own profile (except role)
+    if (currentUser.role !== "admin" && currentUser._id.toString() !== userId) {
+      return res.status(403).json({ message: "You can only edit your own profile" });
+    }
 
-export { addUser, login, logout, getUsers,deleteUser };
+    // Regular users cannot change their role
+    if (currentUser.role !== "admin" && role && role !== userToEdit.role) {
+      return res.status(403).json({ message: "You cannot change your role" });
+    }
+
+    // Check if email is being changed and if it's already in use
+    if (email && email !== userToEdit.email) {
+      const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+    }
+
+    // Update user data
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email.trim().toLowerCase();
+    if (role && currentUser.role === "admin") updateData.role = role;
+
+    // Handle password update
+    if (password) {
+      if (password !== confirmPassword) {
+        return res.status(400).json({ message: "Passwords do not match" });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    // Update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getMyProfile = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    
+    // Return only the current user's profile (without password)
+    const userProfile = await User.findById(currentUser._id).select('-password');
+    
+    res.status(200).json({
+      success: true,
+      user: userProfile
+    });
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export { addUser, login, logout, getUsers, deleteUser, editUser, getMyProfile };
 
 
 

@@ -1,5 +1,6 @@
-import { contactUs, reply, Sender } from "../models/contactUsModel.js";
-import { contactMail } from "../utils/sendEmail.js";
+import { contactUs , Reply, Sender } from "../models/contactUsModel.js";
+
+import { contactMail, replyMail } from "../utils/sendEmail.js";
 
 export const contactUsController = async (req, res) => {
   try {
@@ -25,10 +26,12 @@ export const contactUsController = async (req, res) => {
       email,
       message,
       phone: phone || null,
-      senderMail: sender[0].mail,
+      senderMail: sender.map((s) => s.mail).join(", "),
     });
-
-    await contactMail(name, email, phone, message, sender[0].mail);
+   await Promise.all(
+  sender.map(s => contactMail(name, email, phone, message, s.mail))
+);
+   
 
     return res.status(201).json({
       success: true,
@@ -50,14 +53,7 @@ export const contactUsController = async (req, res) => {
 export const addSenderMail = async (req, res) => {
   try {
     const mail = req.body;
-    const existingSender = await Sender.findOne();
-
-    if (existingSender) {
-      return res.status(400).json({
-        success: false,
-        message: "Only one sender is allowed. Delete the existing one first.",
-      });
-    }
+   
     const senderMail = await Sender.create(mail);
     return res.status(201).json({
       success: true,
@@ -143,5 +139,126 @@ export const deleteSenderMail = async (req, res) => {
     });
   }
 };
+
+export const getAllContactMessages = async (req, res) => {
+  try {
+    const messages = await contactUs.find({});
+    return res.status(200).json({
+      success: true,
+      message: "All contact messages fetched successfully",
+      data: messages,
+    });
+  } catch (err) {
+    console.error("Error in getAllContactMessages:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const deleteContactMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await contactUs.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Contact message not found",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Contact message deleted successfully",
+      data: deleted,
+    });
+  } catch (err) {
+    console.error("Error in deleteContactMessage:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getAllContactEmails = async (req, res) => {
+  try {
+    const contacts = await contactUs.find({}, 'email'); // Only fetch the email field
+    const emails = contacts.map(contact => contact.email);
+    return res.status(200).json({
+      success: true,
+      message: "All contact emails fetched successfully",
+      data: emails,
+    });
+  } catch (err) {
+    console.error("Error in getAllContactEmails:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getContactMessageByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const message = await contactUs.findOne({ email });
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "No contact message found for this email.",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Contact message fetched successfully",
+      data: message,
+    });
+  } catch (err) {
+    console.error("Error in getContactMessageByEmail:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+export const ReplayById = async (req, res) =>{
+  try {
+    const { id } = req.params;
+    const contact = await contactUs.findById(id);
+    const { message } = req.body;
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: "No contact found with this id",
+        });
+        }
+
+      await contactUs.findByIdAndUpdate(id, { isReplied: true }, { new: true });
+      await Reply.create({
+        name: contact.name,
+        email: contact.email,
+        message,
+        phone: contact.phone,
+        contactUs: id
+      });
+         
+      replyMail( contact.email, contact.name,message )
+
+      return res.status(201).json({
+        success: true,
+        message: "Replied successfully",
+      });
+
+  } catch (err) {
+    console.error("Error in ReplayById:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+}
 
 //gitadd

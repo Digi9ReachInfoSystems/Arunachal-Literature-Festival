@@ -1,82 +1,90 @@
 import { EventDayCollection, EventsCollection,TimeCollection } from "../models/eventModel.js";
 import PDFDocument from 'pdfkit'; // Assuming pdfdoc is PDFKit
-import { DateTime } from 'luxon'; 
+// Removed unused luxon import
+import mongoose from 'mongoose';
 
 export const addEvent = async (req, res) => {
-    try {
-        const { name, description, year, month, startDate, endDate } =
-            req.body;
-              const start = new Date(startDate);
-                const end = new Date(endDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            return res.status(400).json({ message: "Invalid date format" });
-        }
+  try {
+    const { name, description, year, month, startDate, endDate } = req.body;
 
-        if (end < start) {
-            return res.status(400).json({ message: "End date must be after start date" });
-        }
+    // --- VALIDATION ---
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Use UTC to avoid timezone issues
 
+    if (isNaN(start.getTime())) throw new Error("Invalid start date");
+    if (isNaN(end.getTime())) throw new Error("Invalid end date");
+    if (end <= start) throw new Error("End date must be after start date");
 
-
-        // Check for duplicate events
-        const existingEvent = await EventsCollection.findOne({
-            name,
-            startDate: start,
-            endDate: end
-        });
-
-        if (existingEvent) {
-            return res.status(409).json({ message: "Event with same name and dates already exists" });
-        }
-         const ongoingEvent = await EventsCollection.findOne({
-          $or: [
-            { startDate: { $lte: end }, endDate: { $gte: start } }, // Overlapping dates
-            { endDate: { $gte: today } } // Ongoing or future events
+    // --- CONFLICT CHECK ---
+    const conflictingEvent = await EventsCollection.findOne({
+      $or: [
+        { name }, // Same name (even if dates differ)
+        {
+          $and: [
+            { startDate: { $lt: end } },
+            { endDate: { $gt: start } }
           ]
-        });
-          if (ongoingEvent) {
-            return res.status(400).json({ 
-                message: `Cannot add new event. Conflicting with "${ongoingEvent.name}" (until ${ongoingEvent.endDate.toDateString()})`
-            });
         }
-        
+      ]
+    });
 
-        const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
-       
-        const event = new EventsCollection({
-            name,
-            description,
-            year,
-            month,
-            startDate: start,
-            endDate: end,
-            totalDays,
-        });
-        await event.save();
-         const eventDayDocs = [];
-        for (let i = 0; i < totalDays; i++) {
-        const dayDate = new Date(startDate);
-        dayDate.setDate(dayDate.getDate() + i);
-            eventDayDocs.push({
-                event_ref: event._id,
-                dayNumber: i + 1,
-                name: `Day ${i + 1}`,
-                description: `Day ${i + 1} description`,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            })
-            
-        }
-        await EventDayCollection.insertMany(eventDayDocs);
-
-        res.status(200).json({ message: "Event added successfully" });
-    } catch (error) {
-        console.error("Error adding event:", error.message);
-        res.status(500).json({ message: "Server error" });
+    if (conflictingEvent) {
+      return res.status(409).json({
+        success: false,
+        error: `Event conflict: "${conflictingEvent.name}" (${conflictingEvent.startDate.toISOString()} - ${conflictingEvent.endDate.toISOString()})`
+      });
     }
-}
+
+    // --- CREATE EVENT ---
+    const totalDays = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+
+    const event = new EventsCollection({
+      name,
+      description,
+      year,
+      month,
+      startDate: start,
+      endDate: end,
+      totalDays,
+    });
+
+    await event.save();
+
+    // --- CREATE EVENT DAYS ---
+    const eventDayDocs = Array.from({ length: totalDays }, (_, i) => {
+      const dayDate = new Date(start);
+      dayDate.setDate(dayDate.getDate() + i);
+
+      return {
+        event_ref: event._id,
+        dayNumber: i + 1,
+        name: `Day ${i + 1}`,
+        description: description || `Day ${i + 1} description`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    });
+
+    await EventDayCollection.insertMany(eventDayDocs);
+
+    // --- SUCCESS RESPONSE ---
+    res.status(201).json({ success: true, eventId: event._id });
+
+  } catch (error) {
+    console.error("Event creation failed:", error.message);
+
+    const statusCode = error.message.includes("Invalid") ? 400 :
+                       error.message.includes("conflict") ? 409 : 500;
+
+    res.status(statusCode).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 
 export const updateEventDay = async (req, res) => {
     try {
@@ -90,7 +98,7 @@ export const updateEventDay = async (req, res) => {
         eventDay.description = description;
         eventDay.updatedAt = new Date();
 
-        eventDay.save();
+        await eventDay.save();
      
         res.status(201).json({ message: "Event day updated successfully" });
     } catch (error) {
@@ -105,48 +113,54 @@ export const getEvent = async (req, res) => {
         res.status(200).json(events);
     }
     catch(err){
-        console.error("coudnlt get the event",err);
+        console.error("Couldn't get the event",err);
         res.status(500).json({ message: "Server error" });
     }
 }
 export const getTotalEvent = async (req, res) => {
   try {
-   
-    const timeEntries = await TimeCollection.find()
+    console.log("getTotalEvent called");
+    // First check if there are any events
+    const events = await EventsCollection.find();
+    console.log("Events found:", events.length);
+    
+    if (!events || events.length === 0) {
+      console.log("No events found, returning 404");
+      return res.status(404).json({ message: "No events found" });
+    }
+
+    // Get the first event
+    const event = events[0];
+    
+    // Get time entries for this event
+    const timeEntries = await TimeCollection.find({ event_ref: event._id })
       .populate('day_ref')
       .populate('event_ref');
     
-    if (timeEntries.length === 0) {
-      return res.status(404).json({ message: "No time entries found" });
-    }
-
-   
-    const firstValidEntry = timeEntries.find(entry => entry.event_ref);
+    // Get event days for this event
+    const eventDays = await EventDayCollection.find({ event_ref: event._id });
     
-    if (!firstValidEntry) {
-      return res.status(404).json({ message: "No valid event references found in time entries" });
-    }
-
-    const eventData = firstValidEntry.event_ref.toObject();
     const daysMap = new Map();
     
+    // Initialize days with empty times array
+    eventDays.forEach(day => {
+      const dayObj = day.toObject();
+      dayObj.times = [];
+      daysMap.set(day._id.toString(), dayObj);
+    });
+    
+    // Add time entries to their respective days
     timeEntries.forEach(entry => {
-     
       if (!entry.day_ref) return;
       
       const dayId = entry.day_ref._id.toString();
       
-      if (!daysMap.has(dayId)) {
-        const day = entry.day_ref.toObject();
-        day.times = [];
-        daysMap.set(dayId, day);
+      if (daysMap.has(dayId)) {
+        const timeEntry = entry.toObject();
+        delete timeEntry.event_ref;
+        delete timeEntry.day_ref;
+        daysMap.get(dayId).times.push(timeEntry);
       }
-      
-      const timeEntry = entry.toObject();
-      delete timeEntry.event_ref;
-      delete timeEntry.day_ref;
-      
-      daysMap.get(dayId).times.push(timeEntry);
     });
     
     const days = Array.from(daysMap.values());
@@ -154,7 +168,6 @@ export const getTotalEvent = async (req, res) => {
     
     days.forEach(day => {
       day.times.sort((a, b) => {
-       
         const timeA = a.startTime ? new Date(`1970-01-01T${a.startTime}`) : 0;
         const timeB = b.startTime ? new Date(`1970-01-01T${b.startTime}`) : 0;
         return timeA - timeB;
@@ -162,13 +175,14 @@ export const getTotalEvent = async (req, res) => {
     });
     
     const response = {
-      event: eventData,
+      event: event.toObject(),
       days: days
     };
     
     res.json(response);
      
   } catch (error) {
+    console.error("Error in getTotalEvent:", error);
     res.status(500).json({ message: error.message });
   }
 }
@@ -176,7 +190,7 @@ export const getEventDay = async (req, res) => {
     try {
         
         const eventDay = await EventDayCollection.find();
-        if (!eventDay) {
+        if (!eventDay || eventDay.length === 0) {
             return res.status(404).json({ message: "Event day not found" });
         }
         res.status(200).json(eventDay);
@@ -281,11 +295,25 @@ export const updateEvent = async (req, res) => {
         event.totalDays = totalDays;
         event.updatedAt = new Date();
 
-        event.save();
+        await event.save();
+        
+        // Delete existing event days and their associated time slots
+        const existingEventDays = await EventDayCollection.find({ event_ref: event._id });
+        const existingDayIds = existingEventDays.map(day => day._id);
+        
+        // Delete associated time slots first
+        if (existingDayIds.length > 0) {
+            await TimeCollection.deleteMany({ day_ref: { $in: existingDayIds } });
+        }
+        
+        // Delete existing event days
+        await EventDayCollection.deleteMany({ event_ref: event._id });
+        
+        // Create new event days
         const eventDayDocs = [];
         for (let i = 0; i < totalDays; i++) {
-        const dayDate = new Date(startDate);
-        dayDate.setDate(dayDate.getDate() + i);
+            const dayDate = new Date(startDate);
+            dayDate.setDate(dayDate.getDate() + i);
             eventDayDocs.push({
                 event_ref: event._id,
                 dayNumber: i + 1,
@@ -293,15 +321,14 @@ export const updateEvent = async (req, res) => {
                 description: `Day ${i + 1} description`,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-            })
-            
+            });
         }
-        await EventDayCollection.insertMany(eventDayDocs)
+        await EventDayCollection.insertMany(eventDayDocs);
          
      
         res.status(201).json({ message: "Event updated successfully" });
     } catch (error) {
-        console.error("Error updating event day:", error.message);
+        console.error("Error updating event:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 }
@@ -363,7 +390,7 @@ export const updateTime = async (req, res) => {
         time.speaker = speaker;
         time.updatedAt = new Date();
 
-        time.save();
+        await time.save();
         res.status(201).json({ message: "Time updated successfully" });
     } catch (error) {
         console.error("Error updating time:", error.message);
@@ -533,15 +560,15 @@ export const deleteTime = async (req, res) =>{
 export const getTime = async (req, res) =>{
   try{
     const time = await TimeCollection.find();
-    if(!time){
+    if(!time || time.length === 0){
       return res.status(404).json({ message: 'Time not found' });
-      }
-      res.status(200).json(time);
-      }
-      catch(err){
-        console.error('Error in getTime:', err.message);
-        res.status(500).json({ message: 'Server error', error: err.message });
-      }
+    }
+    res.status(200).json(time);
+  }
+  catch(err){
+    console.error('Error in getTime:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 }
 
 export const getFullEventDetails = async (req, res) => {

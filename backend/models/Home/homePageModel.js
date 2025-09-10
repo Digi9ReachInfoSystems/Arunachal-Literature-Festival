@@ -10,7 +10,6 @@ const textSchmea = new mongoose.Schema({
     bannerText: {
         type: String,
         required: true
-
     },
     bannerSubText: {
         type: String,
@@ -18,6 +17,10 @@ const textSchmea = new mongoose.Schema({
     },
     location: {
         type: String,
+    },
+    link: {
+        type: String,
+        required: false
     }
 
 })
@@ -26,7 +29,7 @@ const BannerText = mongoose.model("Text", textSchmea);
 const buttonTextSchema = new mongoose.Schema({
     text: {
         type: String,
-        required: true
+        
     },
     link: {
         type: String,
@@ -67,4 +70,45 @@ const testiMoneySchema = new mongoose.Schema({
 })
 const Testimony = mongoose.model("Testimony", testiMoneySchema);
 
-export  {Banner, BannerText, Button, Poetry, Testimony};
+// Intro section: title, description, date, optional image
+const introSchema = new mongoose.Schema({
+    title: {
+        type: String,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    },
+    date: {
+        type: Date,
+        required: true
+    },
+    image_url: {
+        type: String
+    }
+})
+const Intro = mongoose.model("Intro", introSchema);
+
+// Contact Information schema
+const contactInfoSchema = new mongoose.Schema({
+    officeAddress: {
+        type: String,
+        required: true
+    },
+    eventVenue: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        required: true
+    },
+    emailLink: {
+        type: String,
+        required: false
+    }
+})
+const ContactInfo = mongoose.model("ContactInfo", contactInfoSchema);
+
+export  {Banner, BannerText, Button, Poetry, Testimony, Intro, ContactInfo};

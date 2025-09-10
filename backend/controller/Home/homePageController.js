@@ -4,6 +4,8 @@ import {
   Button,
   Poetry,
   Testimony,
+  Intro,
+  ContactInfo,
 } from "../../models/Home/homePageModel.js";
 import { bucket } from "../../config/firebaseConfig.js";
 import path from "path";
@@ -187,7 +189,7 @@ export const deleteBanner = async (req, res) => {
 
 export const addText = async (req, res) => {
   try {
-    const { bannerText, bannerSubText, location } = req.body;
+    const { bannerText, bannerSubText, location, link } = req.body;
     const existing = await BannerText.find();
     if (existing.length > 0) {
       return res.status(400).json({ message: "Banner already exists" });
@@ -196,6 +198,7 @@ export const addText = async (req, res) => {
       bannerText,
       bannerSubText,
       location,
+      link,
     });
     res.status(201).json(newText);
   } catch (err) {
@@ -215,11 +218,11 @@ export const getText = async (req, res) => {
 };
 export const updateText = async (req, res) => {
   try {
-    const { bannerText, bannerSubText, location } = req.body;
+    const { bannerText, bannerSubText, location, link } = req.body;
     const { bannerId } = req.params;
     const bannerTextUpdate = await BannerText.findByIdAndUpdate(
       bannerId,
-      { bannerText, bannerSubText, location },
+      { bannerText, bannerSubText, location, link },
       { new: true }
     );
     res.status(200).json(bannerTextUpdate);
@@ -294,9 +297,7 @@ export const addPoetry = async (req, res) => {
   try {
     const { text, author } = req.body;
     const existing = await Poetry.find();
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Poetry already exists" });
-    }
+   
     const newPoetry = await Poetry.create({ text, author });
     res.status(201).json(newPoetry);
   } catch (error) {
@@ -353,9 +354,7 @@ export const addTestimonial = async (req, res) => {
     await handleFileUpload();
     const { name, about, description } = req.body;
     const existing = await Testimony.find();
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Testimonial already exists" });
-    }
+
     const file = req.file;
     let imageUrl = "";
     if (file) {
@@ -513,6 +512,247 @@ export const deleteTestimonial = async (req, res) => {
     res.status(200).json({ message: "Testimonial deleted successfully" });
   } catch (err) {
     console.error("Error deleting testimonial:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Intro: title, description, date, optional image (Firebase)
+export const addIntro = async (req, res) => {
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
+  try {
+    await handleFileUpload();
+    const { title, description, date } = req.body;
+
+    const file = req.file;
+    let imageUrl = "";
+    if (file) {
+      const fileName = Date.now() + path.extname(file.originalname);
+      const destination = `Home/Intro/${fileName}`;
+      const fileUpload = bucket.file(destination);
+
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: { contentType: file.mimetype },
+        });
+        stream.on("error", reject);
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+        stream.end(file.buffer);
+      });
+    }
+
+    const intro = await Intro.create({
+      title,
+      description,
+      date: date ? new Date(date) : undefined,
+      image_url: imageUrl,
+    });
+    res.status(201).json(intro);
+  } catch (error) {
+    console.error("Error adding intro:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getIntro = async (req, res) => {
+  try {
+    const intro = await Intro.find();
+    res.status(200).json(intro);
+  } catch (error) {
+    console.error("Error getting intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateIntro = async (req, res) => {
+  const handleFileUpload = () => {
+    return new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  };
+  try {
+    await handleFileUpload();
+    const { introId } = req.params;
+    const { title, description, date } = req.body;
+    const intro = await Intro.findById(introId);
+    if (!intro) {
+      return res.status(404).json({ message: "Intro not found" });
+    }
+
+    const file = req.file;
+    let newImageUrl = intro.image_url;
+
+    if (file) {
+      if (intro.image_url && intro.image_url.includes(bucket.name)) {
+        const urlParts = intro.image_url.split(
+          `https://storage.googleapis.com/${bucket.name}/`
+        );
+        const oldFilePath = urlParts[1];
+        if (oldFilePath) {
+          try {
+            await bucket.file(oldFilePath).delete();
+          } catch (err) {
+            console.warn("Failed to delete old image:", err.message);
+          }
+        }
+      }
+
+      const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
+      const destination = `Home/Intro/${newFileName}`;
+      const fileUpload = bucket.file(destination);
+
+      await new Promise((resolve, reject) => {
+        const stream = fileUpload.createWriteStream({
+          metadata: { contentType: file.mimetype },
+        });
+        stream.on("error", reject);
+        stream.on("finish", async () => {
+          try {
+            await fileUpload.makePublic();
+            newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        });
+        stream.end(file.buffer);
+      });
+    }
+
+    const updated = await Intro.findByIdAndUpdate(
+      introId,
+      { title, description, date: date ? new Date(date) : intro.date, image_url: newImageUrl },
+      { new: true }
+    );
+    res.status(201).json(updated);
+  } catch (error) {
+    console.error("Error updating intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteIntro = async (req, res) => {
+  try {
+    const { introId } = req.params;
+    const intro = await Intro.findById(introId);
+    if (!intro) {
+      return res.status(404).json({ message: "Intro not found" });
+    }
+    if (intro.image_url) {
+      const urlParts = intro.image_url.split(
+        `https://storage.googleapis.com/${bucket.name}/`
+      );
+      const filePath = urlParts[1];
+      if (filePath) {
+        await bucket
+          .file(filePath)
+          .delete()
+          .catch((err) => {
+            console.warn(
+              "Warning: Failed to delete image from Firebase:",
+              err.message
+            );
+          });
+      }
+    }
+    await Intro.findByIdAndDelete(introId);
+    res.status(200).json({ message: "Intro deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting intro:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Contact Information CRUD operations
+export const addContactInfo = async (req, res) => {
+  try {
+    const { officeAddress, eventVenue, email, emailLink } = req.body;
+    
+    // Check if contact info already exists (only allow one contact info record)
+    const existing = await ContactInfo.find();
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Contact information already exists. Use update endpoint to modify." });
+    }
+    
+    const contactInfo = await ContactInfo.create({
+      officeAddress,
+      eventVenue,
+      email,
+      emailLink: emailLink || `mailto:${email}`, // Default to mailto link if not provided
+    });
+    res.status(201).json(contactInfo);
+  } catch (error) {
+    console.error("Error adding contact info:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getContactInfo = async (req, res) => {
+  try {
+    const contactInfo = await ContactInfo.find();
+    res.status(200).json(contactInfo);
+  } catch (error) {
+    console.error("Error getting contact info:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateContactInfo = async (req, res) => {
+  try {
+    const { contactInfoId } = req.params;
+    const { officeAddress, eventVenue, email, emailLink } = req.body;
+    
+    const contactInfo = await ContactInfo.findById(contactInfoId);
+    if (!contactInfo) {
+      return res.status(404).json({ message: "Contact information not found" });
+    }
+    
+    const updated = await ContactInfo.findByIdAndUpdate(
+      contactInfoId,
+      { 
+        officeAddress, 
+        eventVenue, 
+        email, 
+        emailLink: emailLink || `mailto:${email}` 
+      },
+      { new: true }
+    );
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("Error updating contact info:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteContactInfo = async (req, res) => {
+  try {
+    const { contactInfoId } = req.params;
+    const contactInfo = await ContactInfo.findById(contactInfoId);
+    if (!contactInfo) {
+      return res.status(404).json({ message: "Contact information not found" });
+    }
+    
+    await ContactInfo.findByIdAndDelete(contactInfoId);
+    res.status(200).json({ message: "Contact information deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting contact info:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };

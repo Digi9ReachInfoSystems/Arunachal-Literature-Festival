@@ -127,25 +127,31 @@ export const updateSpeaker = async (req, res) =>{
         const file = req.file;
         let newImageUrl = speaker.image_url; 
         if (file && file.buffer) {
-      
-        if (speaker.image_url) {
-            const oldFileName = speaker.image_url.split("/").pop();
-            await bucket.file(oldFileName).delete().catch((err) => {
-            console.warn("Old image delete warning:", err.message);
-            });
-             const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
-              const destination = `Speaker/${newFileName}`; 
-                const fileUpload = bucket.file(destination);
+            // Delete old image from storage if it exists
+            if (speaker.image_url) {
+                const oldObjectPath = speaker.image_url.split(`${bucket.name}/`)[1];
+                await bucket
+                    .file(oldObjectPath || "")
+                    .delete()
+                    .catch((err) => {
+                        console.warn("Old image delete warning:", err.message);
+                    });
+            }
 
-                await new Promise((resolve, reject) => {
-                    const stream = fileUpload.createWriteStream({
+            // Upload the new image
+            const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
+            const destination = `Speaker/${newFileName}`; 
+            const fileUpload = bucket.file(destination);
+
+            await new Promise((resolve, reject) => {
+                const stream = fileUpload.createWriteStream({
                     metadata: {
                         contentType: file.mimetype,
                     },
-                    });
+                });
 
-                    stream.on("error", reject);
-                    stream.on("finish", async () => {
+                stream.on("error", reject);
+                stream.on("finish", async () => {
                     try {
                         await fileUpload.makePublic();
                         newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
@@ -153,10 +159,10 @@ export const updateSpeaker = async (req, res) =>{
                     } catch (error) {
                         reject(error);
                     }
-                    });
-
-                    stream.end(file.buffer);
                 });
+
+                stream.end(file.buffer);
+            });
         }
         const updatedSpeaker = await Speaker.findByIdAndUpdate(
             speakerId,
@@ -168,9 +174,7 @@ export const updateSpeaker = async (req, res) =>{
             { new: true }
             );
         res.status(200).json({ message: "Speaker updated successfully", updatedSpeaker });
-    } 
-    }
-    catch (error) {
+    } catch (error) {
         console.error("Error updating speaker:", error.message);
         res.status(500).json({ message: "Server error" });
     }
@@ -184,11 +188,14 @@ export const deleteSpeaker = async (req, res) =>{
             }
             
             if (speaker.image_url) {
-                const fileName = speaker.image_url.split("/").pop();
-                await bucket.file(fileName).delete().catch((err) => {
-                    console.warn("Warning: Failed to delete image from Firebase:", err.message);
-                });
-                }
+                const objectPath = speaker.image_url.split(`${bucket.name}/`)[1];
+                await bucket
+                    .file(objectPath || "")
+                    .delete()
+                    .catch((err) => {
+                        console.warn("Warning: Failed to delete image from Firebase:", err.message);
+                    });
+            }
             await Speaker.findByIdAndDelete(speakerId);
             res.status(200).json({ message: "Speaker deleted successfully" });
             }

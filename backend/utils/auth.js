@@ -11,10 +11,6 @@ const generateToken = (user) => {
   );
 };
 
-
-
-
-
 const protect = async (req, res, next) => {
    try {
     let token;
@@ -40,10 +36,19 @@ const protect = async (req, res, next) => {
     // 3. Verify token
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
 
-    // 4. Attach user info to request object
-    req.user = decoded;
+    // 4. Fetch complete user data from database
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User no longer exists",
+      });
+    }
 
-    // 5. Continue to next middleware
+    // 5. Attach complete user info to request object
+    req.user = user;
+
+    // 6. Continue to next middleware
     next();
   } catch (error) {
     console.error("JWT verification failed:", error.message);
@@ -66,5 +71,14 @@ const restrictTo = (...roles) => {
     next();
   };
 };
+// Middleware to check cookie consent
+const checkCookieConsent = (req, res, next) => {
+  // Check if user has given consent (stored in a separate consent cookie)
+  const hasConsent = req.signedCookies.userID !== undefined;
+  
+  // Attach consent status to request object for later use
+  req.hasCookieConsent = hasConsent;
+  next();
+};
 
-export { protect, restrictTo, generateToken };
+export { protect, restrictTo, generateToken,checkCookieConsent };

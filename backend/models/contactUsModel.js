@@ -6,8 +6,12 @@ const contactUsSchmea = new mongoose.Schema({
     required: true,
   },
   senderMail:{
-    type:String,
+    type:[String],
     required:true
+  },
+  isReplied: {
+    type: Boolean,
+    default: false,
   },
 
   email: {
@@ -54,7 +58,7 @@ const replySchema = new mongoose.Schema({
   },
 });
 
-const reply = mongoose.model("Reply", replySchema);
+const Reply = mongoose.model("Reply", replySchema);
 
 const senderSchema = new mongoose.Schema({
     mail:{
@@ -64,4 +68,4 @@ const senderSchema = new mongoose.Schema({
 
 })
 const Sender = mongoose.model("Sender",senderSchema)
-export { contactUs, reply,Sender };
+export { contactUs, Reply,Sender };
