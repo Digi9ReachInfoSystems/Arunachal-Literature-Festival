@@ -10,7 +10,6 @@ const textSchmea = new mongoose.Schema({
     bannerText: {
         type: String,
         required: true
-
     },
     bannerSubText: {
         type: String,
