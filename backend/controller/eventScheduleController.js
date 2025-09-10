@@ -67,7 +67,8 @@ export const addEvent = async (req, res) => {
       };
     });
 
-    await EventDayCollection.insertMany(eventDayDocs);
+    // await EventDayCollection.insertMany(eventDayDocs);
+    await EventDayCollection.insertMany(eventDayDocs, { ordered: true, rawResult: true });
 
     // --- SUCCESS RESPONSE ---
     res.status(201).json({ success: true, eventId: event._id });
