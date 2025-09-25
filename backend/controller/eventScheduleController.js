@@ -86,6 +86,8 @@ export const addEvent = async (req, res) => {
   }
 };
 
+// development
+
 
 export const updateEventDay = async (req, res) => {
     try {
