@@ -27,28 +27,12 @@ const allowedOrigins = [
 
 dotenv.config();
 await connectDB();
-
+ 
 // Basic hardening
 app.disable('x-powered-by');
-
+ 
 // Use Helmet for basic security headers
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "data:"],
-      connectSrc: ["'self'", ...allowedOrigins],
-      frameAncestors: ["'none'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
-    }
-  },
-  crossOriginEmbedderPolicy: { policy: "require-corp" },
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
   dnsPrefetchControl: { allow: false },
   frameguard: { action: "deny" },
   hidePoweredBy: true,
@@ -64,34 +48,28 @@ app.use(helmet({
   xssFilter: true
 }));
 
-
-// Ensure a CSP header is always present (helps when behind proxies/CDNs)
-app.use((req, res, next) => {
-  if (!res.getHeader('Content-Security-Policy')) {
-    const csp = [
-      "default-src 'self'",
-      "base-uri 'none'",
-      "frame-ancestors 'none'",
-      "form-action 'none'",
-      "object-src 'none'",
-      `connect-src 'self' ${allowedOrigins.join(' ')}`,
-      "img-src 'self' data: https:",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      'upgrade-insecure-requests'
-    ].join('; ');
-    res.setHeader('Content-Security-Policy', csp);
-  }
-  next();
-});
-
-
-
+// Explicit Content Security Policy (CSP)
+app.use(
+  helmet.contentSecurityPolicy({
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", ...allowedOrigins],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  })
+);
+ 
+// Lightweight in-memory rate limiter (no external deps)
 // CORS configuration
 app.use(
   cors({
     origin: function (origin, callback) {
+        console.log(origin);
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
@@ -105,7 +83,7 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
   })
 );
-
+ 
 // Additional security headers middleware (complementary to Helmet)
 app.use((req, res, next) => {
   // Set proper Content-Type with charset for all responses
@@ -115,16 +93,16 @@ app.use((req, res, next) => {
       res.setHeader('Content-Type', `${currentType}; charset=UTF-8`);
     }
   }
-  
+ 
   // Additional security headers not covered by Helmet
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), web-share=(), xr-spatial-tracking=()');
-  
+ 
   // Ensure X-XSS-Protection is set (Helmet sets this but we ensure it's correct)
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
+ 
   next();
 });
-
+ 
 // Middleware to ensure proper content type for JSON responses
 app.use((req, res, next) => {
   const originalSend = res.send;
@@ -138,15 +116,15 @@ app.use((req, res, next) => {
   };
   next();
 });
-
+ 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser(process.env.SECRET_KEY));
-
+ 
 app.get("/", (req, res) => {
   res.send("Welcome to Arunachal Literature Fest API");}
 );
-
+ 
 app.use("/api/v1", checkCookieConsent,viewCounterRoute)
 app.use("/api/v1/onboarding",authRoute)
 app.use("/api/v1/event",eventRoute)
@@ -157,7 +135,7 @@ app.use("/api/v1/newsAndBlog",newsAndBlogRoute)
 app.use("/api/v1/homePage",homePageRoute)
 app.use("/api/v1/videoBlog",videoBlogRoute)
 app.use("/api/v1/sendMail",contactRoute)
-
+ 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
