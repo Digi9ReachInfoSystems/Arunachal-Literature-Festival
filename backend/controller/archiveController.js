@@ -512,5 +512,3 @@ export const getYear = async (req, res) => {
   }
 };
 
-
-// development
