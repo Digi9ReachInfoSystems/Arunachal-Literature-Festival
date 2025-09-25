@@ -44,26 +44,28 @@ app.use(helmet({
   ieNoOpen: true,
   noSniff: true,
   permittedCrossDomainPolicies: { permittedPolicies: "none" },
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  xssFilter: true
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" }
 }));
-
-// Explicit Content Security Policy (CSP)
+ 
+// ✅ Explicit CSP via Helmet
 app.use(
   helmet.contentSecurityPolicy({
-    useDefaults: true,
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", ...allowedOrigins],
+      baseUri: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
       imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "data:"],
-      objectSrc: ["'none'"],
+      fontSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", ...allowedOrigins],
       frameAncestors: ["'none'"],
-      upgradeInsecureRequests: []
-    }
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
   })
 );
- 
+
+
 // Lightweight in-memory rate limiter (no external deps)
 // CORS configuration
 app.use(
