@@ -65,6 +65,28 @@ app.use(helmet({
 }));
 
 
+// Ensure a CSP header is always present (helps when behind proxies/CDNs)
+app.use((req, res, next) => {
+  if (!res.getHeader('Content-Security-Policy')) {
+    const csp = [
+      "default-src 'self'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'none'",
+      "object-src 'none'",
+      `connect-src 'self' ${allowedOrigins.join(' ')}`,
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      'upgrade-insecure-requests'
+    ].join('; ');
+    res.setHeader('Content-Security-Policy', csp);
+  }
+  next();
+});
+
+
 
 // CORS configuration
 app.use(
