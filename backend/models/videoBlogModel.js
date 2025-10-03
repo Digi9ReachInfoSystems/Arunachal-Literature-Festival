@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const videoBlogSchema = new mongoose.Schema({
     title: {
     type: String,
@@ -9,7 +8,7 @@ const videoBlogSchema = new mongoose.Schema({
   },
   videoType:{
     type:String,
-    enu:["youtube","video"],
+    enum:["youtube","video"],
     required:true
   },
   youtubeUrl: {

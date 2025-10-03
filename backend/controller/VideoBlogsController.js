@@ -1,7 +1,7 @@
 import VideoBlog from "../models/videoBlogModel.js";
-import { bucket } from "../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
+import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).fields([
   { name: "video", maxCount: 1 },
@@ -29,73 +29,8 @@ function cleanYouTubeUrl(url) {
   // Return original if we can't clean it (will trigger your schema validation)
   return url;
 }
-const uploadFileToFirebase = async (file, folder) => {
-  const fileName = Date.now() + path.extname(file.originalname);
-  const destination = `${folder}/${fileName}`;
-  const fileUpload = bucket.file(destination);
-
-  return new Promise((resolve, reject) => {
-    const stream = fileUpload.createWriteStream({
-      metadata: { contentType: file.mimetype },
-    });
-
-    stream.on("error", (err) => {
-      console.error("Firebase upload error:", err);
-      reject(err);
-    });
-
-    stream.on("finish", async () => {
-      try {
-        await fileUpload.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-        resolve(publicUrl); // ✅ This is the correct place to return the URL
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    stream.end(file.buffer);
-  });
-};
-const deleteFileFromFirebase = async (fileUrl) => {
-  try {
-    const baseUrl = `https://storage.googleapis.com/${bucket.name}/`;
-    let filePath = fileUrl;
-
-    if (fileUrl.startsWith(baseUrl)) {
-      filePath = fileUrl.replace(baseUrl, "");
-    } else if (fileUrl.includes(`storage.googleapis.com/${bucket.name}/`)) {
-      filePath = fileUrl.split(`storage.googleapis.com/${bucket.name}/`)[1];
-    } else if (
-      fileUrl.includes(`firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`)
-    ) {
-      filePath = fileUrl.split(
-        `firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
-      )[1];
-      filePath = decodeURIComponent(filePath.split("?")[0]).replace(
-        /%2F/g,
-        "/"
-      );
-    }
-
-    console.log("Attempting to delete file:", filePath);
-
-    const file = bucket.file(filePath);
-    const [exists] = await file.exists();
-
-    if (!exists) {
-      console.warn("File does not exist:", filePath);
-      return;
-    }
-
-    await file.delete();
-    console.log("File deleted successfully:", filePath);
-    return true;
-  } catch (error) {
-    console.error("Error deleting file from Firebase:", error.message);
-    throw error; // Consider throwing the error so the caller can handle it
-  }
-};
+const uploadFileLocal = async (file, folder) => saveBufferToLocal(file, folder);
+const deleteLocalFile = async (fileUrl) => deleteLocalByUrl(fileUrl);
 /**
  * Handles adding a new video blog to the database.
  *
@@ -152,8 +87,8 @@ export const addVideoBlog = async (req, res) => {
       const thumbnailFile = req.files.thumbnail[0];
 
       const [videoUrl, thumbnailUrl] = await Promise.all([
-        uploadFileToFirebase(videoFile, "VideoBlog/videos"),
-        uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails"),
+        uploadFileLocal(videoFile, "VideoBlog/videos"),
+        uploadFileLocal(thumbnailFile, "VideoBlog/thumbnails"),
       ]);
 
       videoBlog = await VideoBlog.create({
@@ -188,7 +123,17 @@ export const getVideoBlog = async (req, res) => {
 export const getVideoBlogById = async (req, res) => {
   try {
     const { videoId } = req.params;
+    
+    if (!videoId) {
+      return res.status(400).json({ message: "Video ID is required" });
+    }
+    
     const videoBlog = await VideoBlog.findById(videoId);
+    
+    if (!videoBlog) {
+      return res.status(404).json({ message: "Video blog not found" });
+    }
+    
     res.status(200).json(videoBlog);
   } catch (err) {
     console.error("Error getting video blog:", err.message);
@@ -199,24 +144,24 @@ export const getVideoBlogById = async (req, res) => {
 export const getYoutubeVideo = async (req, res) => {
   try {
     const videoBlog = await VideoBlog.find({ videoType: "youtube" });
-    if (!videoBlog) {
-      return res.status(404).json({ message: "Video Blog not found" });
+    if (!videoBlog || videoBlog.length === 0) {
+      return res.status(404).json({ message: "No YouTube videos found" });
     }
     res.status(200).json(videoBlog);
   } catch (err) {
-    console.error("Error getting video blog:", err.message);
+    console.error("Error getting YouTube videos:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 export const getRawVideo = async (req, res) => {
   try {
     const videoBlog = await VideoBlog.find({ videoType: "video" });
-    if (!videoBlog) {
-      return res.status(404).json({ message: "Video Blog not found" });
+    if (!videoBlog || videoBlog.length === 0) {
+      return res.status(404).json({ message: "No raw videos found" });
     }
     res.status(200).json(videoBlog);
   } catch (err) {
-    console.error("Error getting video blog:", err.message);
+    console.error("Error getting raw videos:", err.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -301,18 +246,18 @@ export const updateVideoBlog = async (req, res) => {
 
         const deletePromises = [];
         if (videoFile && videoBlog.video_url) {
-          deletePromises.push(deleteFileFromFirebase(videoBlog.video_url));
+          deletePromises.push(deleteLocalFile(videoBlog.video_url));
         }
         if (thumbnailFile && videoBlog.imageUrl) {
-          deletePromises.push(deleteFileFromFirebase(videoBlog.imageUrl));
+          deletePromises.push(deleteLocalFile(videoBlog.imageUrl));
         }
         await Promise.all(deletePromises);
 
         if (videoFile) {
-          videoUrl = await uploadFileToFirebase(videoFile, "VideoBlog/videos");
+          videoUrl = await uploadFileLocal(videoFile, "VideoBlog/videos");
         }
         if (thumbnailFile) {
-          thumbnailUrl = await uploadFileToFirebase(thumbnailFile, "VideoBlog/thumbnails");
+          thumbnailUrl = await uploadFileLocal(thumbnailFile, "VideoBlog/thumbnails");
         }
       }
 
@@ -351,10 +296,10 @@ export const deleteVideoBlog = async (req, res) => {
       return res.status(404).json({ message: "Video blog not found" });
     }
     if (videoBlog.video_url) {
-      await deleteFileFromFirebase(videoBlog.video_url);
+      await deleteLocalFile(videoBlog.video_url);
     }
     if (videoBlog.imageUrl) {
-      await deleteFileFromFirebase(videoBlog.imageUrl);
+      await deleteLocalFile(videoBlog.imageUrl);
     }
     await VideoBlog.findByIdAndDelete(videoId);
     res.status(200).json({ message: "Video blog deleted successfully" });

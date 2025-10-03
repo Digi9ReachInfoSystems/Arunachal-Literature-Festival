@@ -1,7 +1,7 @@
-import { bucket } from "../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
 import { Category, NewsAndBlog } from "../models/newsAndBlog.js";
+import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
@@ -113,32 +113,7 @@ export const addNewsAndBlog = async (req, res) => {
     const file = req.file;
     let imageUrl = "";
     if (file) {
-      const fileName = Date.now() + path.extname(file.originalname);
-      const destination = `NewsAndBlog/${fileName}`;
-      const fileUpload = bucket.file(destination);
-
-      // Upload the file to Google Cloud Storage
-      await new Promise((resolve, reject) => {
-        const stream = fileUpload.createWriteStream({
-          metadata: {
-            contentType: file.mimetype,
-          },
-        });
-
-        stream.on("error", reject);
-
-        stream.on("finish", async () => {
-          try {
-            await fileUpload.makePublic();
-            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        stream.end(file.buffer);
-      });
+      imageUrl = await saveBufferToLocal(file, "NewsAndBlog");
     }
     if (contentType === "link") {
       if (!link) {
@@ -212,39 +187,9 @@ export const updateNewsAndBlog = async (req, res) => {
 
     if (file && file.buffer) {
       if (existing.image_url) {
-        const urlParts = existing.image_url.split(
-          `https://storage.googleapis.com/${bucket.name}/`
-        );
-        const oldFilePath = urlParts[1];
-        if (oldFilePath) {
-          await bucket.file(oldFilePath).delete();
-        }
+        await deleteLocalByUrl(existing.image_url);
       }
-
-      const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
-      const destination = `NewsAndBlog/${newFileName}`;
-      const fileUpload = bucket.file(destination);
-
-      await new Promise((resolve, reject) => {
-        const stream = fileUpload.createWriteStream({
-          metadata: {
-            contentType: file.mimetype,
-          },
-        });
-
-        stream.on("error", reject);
-        stream.on("finish", async () => {
-          try {
-            await fileUpload.makePublic();
-            newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        stream.end(file.buffer);
-      });
+      newImageUrl = await saveBufferToLocal(file, "NewsAndBlog");
     }
 
     const updatedNews = await NewsAndBlog.findByIdAndUpdate(
@@ -274,22 +219,7 @@ export const deleteNewsAndBlog = async (req, res) => {
       return res.status(404).json({ message: "News and blog not found" });
     }
     if (newsAndBlog.image_url) {
-      const urlParts = newsAndBlog.image_url.split(
-        `https://storage.googleapis.com/${bucket.name}/`
-      );
-      const filePath = urlParts[1];
-
-      if (filePath) {
-        await bucket
-          .file(filePath)
-          .delete()
-          .catch((err) => {
-            console.warn(
-              "Warning: Failed to delete image from Firebase:",
-              err.message
-            );
-          });
-      }
+      await deleteLocalByUrl(newsAndBlog.image_url);
     }
     await NewsAndBlog.findByIdAndDelete(newsAndBlogId);
     res.status(200).json({ message: "News and blog deleted successfully" });
