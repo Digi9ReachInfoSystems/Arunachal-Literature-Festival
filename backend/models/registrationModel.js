@@ -20,8 +20,8 @@ const WorkshopSchema = new mongoose.Schema(
       type: String,
       required: true,
       validate: {
-        validator: (v) => /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)$/i.test(v),
-        message: "Invalid image URL format",
+        validator: (v) => /\.(jpg|jpeg|png)$/i.test(v),
+        message: "Only JPG, JPEG, and PNG image formats are allowed",
       },
     },
     registrationFormUrl: {

@@ -48,18 +48,31 @@ export const saveMultipleToLocal = async (files, folder) => {
 // Delete file previously saved via URL like /uploads/<folder>/<file>
 export const deleteLocalByUrl = async (fileUrl) => {
 	try {
-		if (!fileUrl || typeof fileUrl !== "string") return;
+		console.log("deleteLocalByUrl called with:", fileUrl);
+		if (!fileUrl || typeof fileUrl !== "string") {
+			console.log("Invalid fileUrl, returning");
+			return;
+		}
 		const prefix = "/uploads/";
 		const idx = fileUrl.indexOf(prefix);
-		if (idx === -1) return;
+		if (idx === -1) {
+			console.log("Prefix not found in fileUrl, returning");
+			return;
+		}
 		const relative = fileUrl.slice(idx + 1); // strip leading '/' for path.join
+		console.log("Relative path:", relative);
 		// Use same consistent path as file saving
 		const __filename = fileURLToPath(import.meta.url);
 		const __dirname = path.dirname(__filename);
 		const backendRoot = path.dirname(__dirname);
 		const absolute = path.join(backendRoot, relative);
+		console.log("Absolute path:", absolute);
+		console.log("File exists:", fs.existsSync(absolute));
 		if (fs.existsSync(absolute)) {
 			await fs.promises.unlink(absolute);
+			console.log("File deleted successfully");
+		} else {
+			console.log("File does not exist, cannot delete");
 		}
 	} catch (err) {
 		// Log and continue; missing files shouldn't break flows
