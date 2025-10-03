@@ -2,6 +2,7 @@ import Speaker from "../models/speakerModel.js";
 import fs from 'fs';
 import path from "path";
 import multer from "multer";
+import { deleteLocalByUrl } from "../utils/fileStorage.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
@@ -24,40 +25,7 @@ const uploadFileToLocal = async (file, folder) => {
   return `/uploads/${folder}/${fileName}`;
 };
 
-const deleteFileFromLocal = async (fileUrl) => {
-  try {
-    // Extract file path from URL
-    const filePath = path.join(process.cwd(), fileUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error deleting file:', error);
-    return false;
-  }
-};
 
-// export const uplaodImage = async (req, res) => {
-//     try {
-//         const file = req.file;
-//         if(!file) return res.status(400).json({ message: "No file uploaded" });
-//         const fileName = Date.now() + path.extname(file.originalname);
-//         const fileUpload = bucket.file(fileName);
-//         const stream = fileUpload.createWriteStream();
-//         stream.on("finish", () => {
-//             fileUpload.makePublic().then(() => {
-//                 const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-//                 res.status(200).json({ imageUrl });
-//             });
-//         });
-//         stream.end(file.buffer);
-//     } catch (error) {
-//         console.error("Error uploading image:", error);
-//         res.status(500).json({ message: "Server error" });
-//     }
-// }
 export const addSpeaker = async (req, res) => {
   const handleFileUpload = () => {
     return new Promise((resolve, reject) => {
@@ -136,7 +104,7 @@ export const updateSpeaker = async (req, res) =>{
         if (file && file.buffer) {
             // Delete old image from local storage if it exists
             if (speaker.image_url) {
-                await deleteFileFromLocal(speaker.image_url);
+                await deleteLocalByUrl(speaker.image_url);
             }
 
             // Upload the new image to local storage
@@ -166,7 +134,7 @@ export const deleteSpeaker = async (req, res) =>{
             }
             
             if (speaker.image_url) {
-                await deleteFileFromLocal(speaker.image_url);
+                await deleteLocalByUrl(speaker.image_url);
             }
             await Speaker.findByIdAndDelete(speakerId);
             res.status(200).json({ message: "Speaker deleted successfully" });

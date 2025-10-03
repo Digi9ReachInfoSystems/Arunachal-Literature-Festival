@@ -391,7 +391,7 @@ export const deleteTestimonial = async (req, res) => {
   }
 };
 
-// Intro: title, description, date, optional image (Firebase)
+// Intro: title, description, date, optional image (local storage)
 export const addIntro = async (req, res) => {
   const handleFileUpload = () => {
     return new Promise((resolve, reject) => {

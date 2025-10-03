@@ -141,7 +141,7 @@ export const deleteEventBroucher = async (req, res) => {
       });
     }
 
-    // 2. Delete associated file from Firebase if it exists
+    // 2. Delete associated file from local storage
     if (eventBrochure.pdf_url) {
       try {
         await deleteLocalFile(eventBrochure.pdf_url);
