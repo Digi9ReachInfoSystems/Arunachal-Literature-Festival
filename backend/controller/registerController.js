@@ -1,7 +1,7 @@
 import Workshop from "../models/registrationModel.js";
-import { bucket } from "../config/firebaseConfig.js";
 import multer from "multer";
 import path from "path";
+import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("imageUrl");
@@ -25,32 +25,7 @@ export const addWorkshop = async (req, res) => {
     const file = req.file;
     let imageUrl = "";
     if (file) {
-      const fileName = Date.now() + path.extname(file.originalname);
-      const destination = `WorkShop/${fileName}`;
-      const fileUpload = bucket.file(destination);
-
-      // Upload the file to Google Cloud Storage
-      await new Promise((resolve, reject) => {
-        const stream = fileUpload.createWriteStream({
-          metadata: {
-            contentType: file.mimetype,
-          },
-        });
-
-        stream.on("error", reject);
-
-        stream.on("finish", async () => {
-          try {
-            await fileUpload.makePublic();
-            imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        stream.end(file.buffer);
-      });
+      imageUrl = await saveBufferToLocal(file, "Workshop");
     }
     const workshop = new Workshop({
       eventRef: eventId,
@@ -97,38 +72,9 @@ export const updateWorkshop = async (req, res) => {
     let newImageUrl = workshop.imageUrl;
     if (file && file.buffer) {
       if (workshop.imageUrl) {
-        const oldFileName = workshop.imageUrl.split("/").pop();
-        await bucket
-          .file(oldFileName)
-          .delete()
-          .catch((err) => {
-            console.warn("Old image delete warning:", err.message);
-          });
-        const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
-        const destination = `Workshop/${newFileName}`;
-        const fileUpload = bucket.file(destination);
-
-        await new Promise((resolve, reject) => {
-          const stream = fileUpload.createWriteStream({
-            metadata: {
-              contentType: file.mimetype,
-            },
-          });
-
-          stream.on("error", reject);
-          stream.on("finish", async () => {
-            try {
-              await fileUpload.makePublic();
-              newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-              resolve();
-            } catch (error) {
-              reject(error);
-            }
-          });
-
-          stream.end(file.buffer);
-        });
+        await deleteLocalByUrl(workshop.imageUrl);
       }
+      newImageUrl = await saveBufferToLocal(file, "Workshop");
     }
 
     const updatedworkshop = await Workshop.findByIdAndUpdate(
@@ -158,16 +104,7 @@ export const deleteWorkshop = async (req, res) => {
       return res.status(404).json({ message: "Workshop not found" });
     }
     if (workshop.imageUrl) {
-      const fileName = workshop.imageUrl.split("/").pop();
-      await bucket
-        .file(fileName)
-        .delete()
-        .catch((err) => {
-          console.warn(
-            "Warning: Failed to delete image from Firebase:",
-            err.message
-          );
-        });
+      await deleteLocalByUrl(workshop.imageUrl);
     }
     await Workshop.findByIdAndDelete(workshopId);
     res.status(200).json({ message: "Workshop deleted successfully" });

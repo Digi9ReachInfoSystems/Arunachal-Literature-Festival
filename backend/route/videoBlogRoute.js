@@ -14,7 +14,7 @@ import {
 const videoBlogRoute = express.Router();
 
 videoBlogRoute.post(
-  "/addVideoBLog",
+  "/addVideoBlog",
   protect,
   restrictTo("admin"),
   addVideoBlog

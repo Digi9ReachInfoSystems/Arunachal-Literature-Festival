@@ -1,81 +1,15 @@
 import { EventBroucher } from "../models/eventModel.js";
-import { bucket } from "../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
+import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).fields([
   { name: "pdf", maxCount: 1 },
 ]);
 
-const uploadFileToFirebase = async (file, folder) => {
-  const fileName = Date.now() + path.extname(file.originalname);
-  const destination = `${folder}/${fileName}`;
-  const fileUpload = bucket.file(destination);
-
-  return new Promise((resolve, reject) => {
-    const stream = fileUpload.createWriteStream({
-      metadata: { contentType: file.mimetype },
-    });
-
-    stream.on("error", (err) => {
-      console.error("Firebase upload error:", err);
-      reject(err);
-    });
-
-    stream.on("finish", async () => {
-      try {
-        await fileUpload.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-        resolve(publicUrl); // ✅ This is the correct place to return the URL
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    stream.end(file.buffer);
-  });
-};
-
-const deleteFileFromFirebase = async (fileUrl) => {
-  try {
-    const baseUrl = `https://storage.googleapis.com/${bucket.name}/`;
-    let filePath = fileUrl;
-
-    if (fileUrl.startsWith(baseUrl)) {
-      filePath = fileUrl.replace(baseUrl, "");
-    } else if (fileUrl.includes(`storage.googleapis.com/${bucket.name}/`)) {
-      filePath = fileUrl.split(`storage.googleapis.com/${bucket.name}/`)[1];
-    } else if (
-      fileUrl.includes(`firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`)
-    ) {
-      filePath = fileUrl.split(
-        `firebasestorage.googleapis.com/v0/b/${bucket.name}/o/`
-      )[1];
-      filePath = decodeURIComponent(filePath.split("?")[0]).replace(
-        /%2F/g,
-        "/"
-      );
-    }
-
-    console.log("Attempting to delete file:", filePath);
-
-    const file = bucket.file(filePath);
-    const [exists] = await file.exists();
-
-    if (!exists) {
-      console.warn("File does not exist:", filePath);
-      return;
-    }
-
-    await file.delete();
-    console.log("File deleted successfully:", filePath);
-    return true;
-  } catch (error) {
-    console.error("Error deleting file from Firebase:", error.message);
-    throw error; // Consider throwing the error so the caller can handle it
-  }
-};
+const uploadFileLocal = async (file, folder) => saveBufferToLocal(file, folder);
+const deleteLocalFile = async (fileUrl) => deleteLocalByUrl(fileUrl);
 
 export const addEventBroucher = async (req, res) => {
   const handleFileUpload = () => {
@@ -101,8 +35,7 @@ export const addEventBroucher = async (req, res) => {
       });
     }
     const pdfFile = req.files.pdf[0];
-    // Upload to Firebase (using req.file since you're using single file upload)
-    const pdfUrl = await uploadFileToFirebase(pdfFile, "EventBroucher/pdf");
+    const pdfUrl = await uploadFileLocal(pdfFile, "EventBroucher/pdf");
 
     // Create record in database
     const eventBroucher = await EventBroucher.create({
@@ -172,10 +105,10 @@ export const updateEventBroucher = async (req, res) => {
     const pdfFile = req.files.pdf[0];
     const deletePromises = [];
     if (eventBroucher.pdf_url) {
-      deletePromises.push(deleteFileFromFirebase(eventBroucher.pdf_url));
+      deletePromises.push(deleteLocalFile(eventBroucher.pdf_url));
     }
     await Promise.all(deletePromises);
-    const pdfUrl = await uploadFileToFirebase(pdfFile, "EventBroucher/pdf");
+    const pdfUrl = await uploadFileLocal(pdfFile, "EventBroucher/pdf");
     const updatedBrochure = await EventBroucher.findByIdAndUpdate(
       id,
       { pdf_url: pdfUrl },
@@ -211,7 +144,7 @@ export const deleteEventBroucher = async (req, res) => {
     // 2. Delete associated file from Firebase if it exists
     if (eventBrochure.pdf_url) {
       try {
-        await deleteFileFromFirebase(eventBrochure.pdf_url);
+        await deleteLocalFile(eventBrochure.pdf_url);
       } catch (e) {
         console.error("File delete failed (continuing with DB delete):", e?.message || e);
       }

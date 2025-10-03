@@ -1,11 +1,43 @@
 import Speaker from "../models/speakerModel.js";
-import { bucket } from "../config/firebaseConfig.js";
+import fs from 'fs';
 import path from "path";
 import multer from "multer";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
 
+// Local storage functions
+const uploadFileToLocal = async (file, folder) => {
+  const fileName = Date.now() + path.extname(file.originalname);
+  const uploadDir = path.join(process.cwd(), 'uploads', folder);
+  const destination = path.join(uploadDir, fileName);
+  
+  // Create directory if it doesn't exist
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  
+  // Write file to local storage
+  fs.writeFileSync(destination, file.buffer);
+  
+  // Return local URL
+  return `/uploads/${folder}/${fileName}`;
+};
+
+const deleteFileFromLocal = async (fileUrl) => {
+  try {
+    // Extract file path from URL
+    const filePath = path.join(process.cwd(), fileUrl);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    return false;
+  }
+};
 
 // export const uplaodImage = async (req, res) => {
 //     try {
@@ -44,35 +76,10 @@ export const addSpeaker = async (req, res) => {
         const { name, about } = req.body;
         const file = req.file;
 
-        // If image is provided, upload it first
+        // If image is provided, upload it to local storage
         let imageUrl = '';
         if (file) {
-            const fileName = Date.now() + path.extname(file.originalname);
-            const destination = `Speaker/${fileName}`; 
-            const fileUpload = bucket.file(destination);
-            
-            // Upload the file to Google Cloud Storage
-             await new Promise((resolve, reject) => {
-                const stream = fileUpload.createWriteStream({
-                metadata: {
-                    contentType: file.mimetype,
-                },
-                });
-
-                stream.on("error", reject);
-
-                stream.on("finish", async () => {
-                try {
-                    await fileUpload.makePublic();
-                    imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-                    resolve();
-                } catch (error) {
-                    reject(error);
-                }
-                });
-
-                stream.end(file.buffer);
-            });
+            imageUrl = await uploadFileToLocal(file, "Speaker");
         }
 
        
@@ -127,42 +134,13 @@ export const updateSpeaker = async (req, res) =>{
         const file = req.file;
         let newImageUrl = speaker.image_url; 
         if (file && file.buffer) {
-            // Delete old image from storage if it exists
+            // Delete old image from local storage if it exists
             if (speaker.image_url) {
-                const oldObjectPath = speaker.image_url.split(`${bucket.name}/`)[1];
-                await bucket
-                    .file(oldObjectPath || "")
-                    .delete()
-                    .catch((err) => {
-                        console.warn("Old image delete warning:", err.message);
-                    });
+                await deleteFileFromLocal(speaker.image_url);
             }
 
-            // Upload the new image
-            const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
-            const destination = `Speaker/${newFileName}`; 
-            const fileUpload = bucket.file(destination);
-
-            await new Promise((resolve, reject) => {
-                const stream = fileUpload.createWriteStream({
-                    metadata: {
-                        contentType: file.mimetype,
-                    },
-                });
-
-                stream.on("error", reject);
-                stream.on("finish", async () => {
-                    try {
-                        await fileUpload.makePublic();
-                        newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-
-                stream.end(file.buffer);
-            });
+            // Upload the new image to local storage
+            newImageUrl = await uploadFileToLocal(file, "Speaker");
         }
         const updatedSpeaker = await Speaker.findByIdAndUpdate(
             speakerId,
@@ -188,13 +166,7 @@ export const deleteSpeaker = async (req, res) =>{
             }
             
             if (speaker.image_url) {
-                const objectPath = speaker.image_url.split(`${bucket.name}/`)[1];
-                await bucket
-                    .file(objectPath || "")
-                    .delete()
-                    .catch((err) => {
-                        console.warn("Warning: Failed to delete image from Firebase:", err.message);
-                    });
+                await deleteFileFromLocal(speaker.image_url);
             }
             await Speaker.findByIdAndDelete(speakerId);
             res.status(200).json({ message: "Speaker deleted successfully" });

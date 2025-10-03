@@ -1,7 +1,7 @@
 import { Year, DayNumber, Archive } from "../models/archiveModel.js";
-import { bucket } from "../config/firebaseConfig.js";
 import path from "path";
 import multer from "multer";
+import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
 const storage = multer.memoryStorage();
 const uploads = multer({ storage }).array("image_url", 10);
 const upload = multer({ storage }).single("image_url", 10);
@@ -109,17 +109,7 @@ export const deleteYear = async (req, res) => {
     const archives = await Archive.find({ dayNumber_ref: { $in: dayIds } });
     for (const archive of archives) {
       if (archive.image_url) {
-        const filePath = archive.image_url.split(
-          `https://storage.googleapis.com/${bucket.name}/`
-        )[1];
-        if (filePath) {
-          await bucket
-            .file(filePath)
-            .delete()
-            .catch((err) => {
-              console.warn("Image delete warning:", err.message);
-            });
-        }
+        await deleteLocalByUrl(archive.image_url);
       }
     }
     await Archive.deleteMany({ dayNumber_ref: dayIds });
@@ -162,32 +152,8 @@ export const uploadImages = async (req, res) => {
     const uploadedArchives = [];
 
     for (const file of files) {
-      const fileName = `${Date.now()}-${file.originalname}`;
-      const destination = `Archive/${yearDoc.year}/${dayDoc.dayLabel}/${fileName}`;
-      const fileUpload = bucket.file(destination);
-
-      await new Promise((resolve, reject) => {
-        const stream = fileUpload.createWriteStream({
-          metadata: {
-            contentType: file.mimetype,
-          },
-        });
-
-        stream.on("error", reject);
-
-        stream.on("finish", async () => {
-          try {
-            await fileUpload.makePublic();
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        stream.end(file.buffer);
-      });
-
-      const imageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+      const folder = path.join("Archive", String(yearDoc.year), String(dayDoc.dayLabel));
+      const imageUrl = await saveBufferToLocal(file, folder);
 
       const archive = await Archive.create({
         year_ref,
@@ -232,41 +198,10 @@ export const updateUploadedImage = async (req, res) => {
     let newImageUrl = archive.image_url;
     if (file && file.buffer) {
       if (archive.image_url) {
-        // const oldFileName = archive.image_url.split("/").pop();
-        const oldFilePath = archive.image_url.split(
-          `https://storage.googleapis.com/${bucket.name}/`
-        )[1];
-        await bucket
-          .file(oldFilePath)
-          .delete()
-          .catch((err) => {
-            console.warn("Old image delete warning:", err.message);
-          });
-        const newFileName = `${Date.now()}${path.extname(file.originalname)}`;
-        const destination = `Archive/${yearDoc.year}/${dayDoc.dayLabel}/${newFileName}`;
-        const fileUpload = bucket.file(destination);
-
-        await new Promise((resolve, reject) => {
-          const stream = fileUpload.createWriteStream({
-            metadata: {
-              contentType: file.mimetype,
-            },
-          });
-
-          stream.on("error", reject);
-          stream.on("finish", async () => {
-            try {
-              await fileUpload.makePublic();
-              newImageUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-              resolve();
-            } catch (error) {
-              reject(error);
-            }
-          });
-
-          stream.end(file.buffer);
-        });
+        await deleteLocalByUrl(archive.image_url);
       }
+      const folder = path.join("Archive", String(yearDoc.year), String(dayDoc.dayLabel));
+      newImageUrl = await saveBufferToLocal(file, folder);
       const updatedImage = await Archive.findByIdAndUpdate(
         imageId,
         {
@@ -291,15 +226,9 @@ export const deleteUploadedImage = async (req, res) => {
     if (!archive) {
       return res.status(404).json({ message: "Image not found" });
     }
-    const filePath = archive.image_url.split(
-      `https://storage.googleapis.com/${bucket.name}/`
-    )[1];
-    await bucket
-      .file(filePath)
-      .delete()
-      .catch((err) => {
-        console.warn("Image delete warning:", err.message);
-      });
+    if (archive.image_url) {
+      await deleteLocalByUrl(archive.image_url);
+    }
     res.status(200).json({ message: "Image deleted successfully" });
   } catch (err) {
     console.error("Error deleting image:", err);
@@ -337,17 +266,7 @@ export const deleteday = async (req, res) => {
     const archives = await Archive.find({ dayNumber_ref: { $in: day_ref } });
     for (const archive of archives) {
       if (archive.image_url) {
-        const filePath = archive.image_url.split(
-          `https://storage.googleapis.com/${bucket.name}/`
-        )[1];
-        if (filePath) {
-          await bucket
-            .file(filePath)
-            .delete()
-            .catch((err) => {
-              console.warn("Image delete warning:", err.message);
-            });
-        }
+        await deleteLocalByUrl(archive.image_url);
       }
     }
     await Archive.deleteMany({ dayNumber_ref: day_ref });
