@@ -2,19 +2,23 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
 
+// Helper function to get consistent uploads root path
+export const getUploadsRoot = () => {
+	const __filename = fileURLToPath(import.meta.url);
+	const __dirname = path.dirname(__filename);
+	const backendRoot = path.dirname(__dirname); // Go up from utils/ to backend/
+	return path.join(backendRoot, "uploads");
+};
+
 // Save a single uploaded file buffer to local uploads/<folder>/ and return public URL path
 export const saveBufferToLocal = async (file, folder) => {
 	if (!file || !file.buffer || !file.originalname) {
 		throw new Error("Invalid file input");
 	}
 	// Use consistent path - same as what the server uses to serve files
-	const __filename = fileURLToPath(import.meta.url);
-	const __dirname = path.dirname(__filename);
-	const backendRoot = path.dirname(__dirname); // Go up from utils/ to backend/
-	const uploadsRoot = path.join(backendRoot, "uploads", folder);
+	const uploadsRoot = path.join(getUploadsRoot(), folder);
 	
 	console.log('File storage - uploadsRoot:', uploadsRoot);
-	console.log('File storage - backendRoot:', backendRoot);
 	console.log('File storage - process.cwd():', process.cwd());
 	
 	if (!fs.existsSync(uploadsRoot)) {
@@ -62,10 +66,7 @@ export const deleteLocalByUrl = async (fileUrl) => {
 		const relative = fileUrl.slice(idx + 1); // strip leading '/' for path.join
 		console.log("Relative path:", relative);
 		// Use same consistent path as file saving
-		const __filename = fileURLToPath(import.meta.url);
-		const __dirname = path.dirname(__filename);
-		const backendRoot = path.dirname(__dirname);
-		const absolute = path.join(backendRoot, relative);
+		const absolute = path.join(getUploadsRoot(), relative);
 		console.log("Absolute path:", absolute);
 		console.log("File exists:", fs.existsSync(absolute));
 		if (fs.existsSync(absolute)) {
