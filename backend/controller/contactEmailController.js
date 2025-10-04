@@ -1,10 +1,57 @@
-import { contactUs , Reply, Sender } from "../models/contactUsModel.js";
+import { contactUs  } from "../models/contactUsModel.js";
 
 import { contactMail, replyMail } from "../utils/sendEmail.js";
 
+// export const contactUsController = async (req, res) => {
+//   try {
+//     const sender = await Sender.find();
+//     const { name, email, message, phone } = req.body;
+//     if (!name || !email || !message) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Name, email, and message are required fields",
+//       });
+//     }
+
+//     // Validate email format
+//     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please provide a valid email address",
+//       });
+//     }
+
+//     const newContact = await contactUs.create({
+//       name,
+//       email,
+//       message,
+//       phone: phone || null,
+//       senderMail: sender.map((s) => s.mail).join(", "),
+//     });
+//    await Promise.all(
+//   sender.map(s => contactMail(name, email, phone, message, s.mail))
+// );
+   
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Contact form submitted successfully",
+//       data: {
+//         contact: newContact,
+//         emailSent: true,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error in contactUsController:", err.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const contactUsController = async (req, res) => {
-  try {
-    const sender = await Sender.find();
+  try{
     const { name, email, message, phone } = req.body;
     if (!name || !email || !message) {
       return res.status(400).json({
@@ -12,35 +59,19 @@ export const contactUsController = async (req, res) => {
         message: "Name, email, and message are required fields",
       });
     }
-
-    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
         success: false,
         message: "Please provide a valid email address",
       });
     }
-
-    const newContact = await contactUs.create({
-      name,
-      email,
-      message,
-      phone: phone || null,
-      senderMail: sender.map((s) => s.mail).join(", "),
-    });
-   await Promise.all(
-  sender.map(s => contactMail(name, email, phone, message, s.mail))
-);
-   
-
+    const newContact  = await contactUs.create({ name, email, message, phone });
     return res.status(201).json({
       success: true,
       message: "Contact form submitted successfully",
-      data: {
-        contact: newContact,
-        emailSent: true,
-      },
+      data: newContact,
     });
+
   } catch (err) {
     console.error("Error in contactUsController:", err.message);
     return res.status(500).json({
@@ -48,97 +79,81 @@ export const contactUsController = async (req, res) => {
       message: "Internal Server Error",
     });
   }
-};
-
-export const addSenderMail = async (req, res) => {
-  try {
-    const mail = req.body;
+}
+// export const addSenderMail = async (req, res) => {
+//   try {
+//     const mail = req.body;
    
-    const senderMail = await Sender.create(mail);
-    return res.status(201).json({
-      success: true,
-      message: "Sender mail added successfully",
-      data: senderMail,
-    });
-  } catch (err) {
-    console.error("Error in addSenderMail:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
+//     const senderMail = await Sender.create(mail);
+//     return res.status(201).json({
+//       success: true,
+//       message: "Sender mail added successfully",
+//       data: senderMail,
+//     });
+//   } catch (err) {
+//     console.error("Error in addSenderMail:", err.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
-export const updateSenderMail = async (req, res) => {
-  try {
-    const { mailId } = req.params;
-    const mail = req.body;
-    const existing = await Sender.findById(mailId);
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: "Sender mail not found",
-      });
-    }
-    const updatedSenderMail = await Sender.findByIdAndUpdate(mailId, mail, {
-      new: true,
-    });
+// export const updateSenderMail = async (req, res) => {
+//   try {
+//     const { mailId } = req.params;
+//     const mail = req.body;
+//     const existing = await Sender.findById(mailId);
+//     if (!existing) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Sender mail not found",
+//       });
+//     }
+//     const updatedSenderMail = await Sender.findByIdAndUpdate(mailId, mail, {
+//       new: true,
+//     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Sender mail updated successfully",
-      data: updatedSenderMail,
-    });
-  } catch (err) {
-    console.error("Error in updateSenderMail:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       message: "Sender mail updated successfully",
+//       data: updatedSenderMail,
+//     });
+//   } catch (err) {
+//     console.error("Error in updateSenderMail:", err.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
-export const getAllSenderMail = async (req, res) => {
-  try {
-    const senderMail = await Sender.find();
-    return res.status(200).json({
-      success: true,
-      message: "Sender mail fetched successfully",
-      data: senderMail,
-    });
-  } catch (err) {
-    console.error("Error in getAllSenderMail:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
+// s
 
-export const deleteSenderMail = async (req, res) => {
-  try {
-    const { mailId } = req.params;
-    const existing = await Sender.findById(mailId);
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: "Sender mail not found",
-      });
-    }
-    const deletedSenderMail = await Sender.findByIdAndDelete(mailId);
-    return res.status(200).json({
-      success: true,
-      message: "Sender mail deleted successfully",
-      data: deletedSenderMail,
-    });
-  } catch (err) {
-    console.error("Error in deleteSenderMail:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
+// export const deleteSenderMail = async (req, res) => {
+//   try {
+//     const { mailId } = req.params;
+//     const existing = await Sender.findById(mailId);
+//     if (!existing) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Sender mail not found",
+//       });
+//     }
+//     const deletedSenderMail = await Sender.findByIdAndDelete(mailId);
+//     return res.status(200).json({
+//       success: true,
+//       message: "Sender mail deleted successfully",
+//       data: deletedSenderMail,
+//     });
+//   } catch (err) {
+//     console.error("Error in deleteSenderMail:", err.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
 export const getAllContactMessages = async (req, res) => {
   try {
@@ -224,41 +239,41 @@ export const getContactMessageByEmail = async (req, res) => {
 };
 
 
-export const ReplayById = async (req, res) =>{
-  try {
-    const { id } = req.params;
-    const contact = await contactUs.findById(id);
-    const { message } = req.body;
-    if (!contact) {
-      return res.status(404).json({
-        success: false,
-        message: "No contact found with this id",
-        });
-        }
+// export const ReplayById = async (req, res) =>{
+//   try {
+//     const { id } = req.params;
+//     const contact = await contactUs.findById(id);
+//     const { message } = req.body;
+//     if (!contact) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No contact found with this id",
+//         });
+//         }
 
-      await contactUs.findByIdAndUpdate(id, { isReplied: true }, { new: true });
-      await Reply.create({
-        name: contact.name,
-        email: contact.email,
-        message,
-        phone: contact.phone,
-        contactUs: id
-      });
+//       await contactUs.findByIdAndUpdate(id, { isReplied: true }, { new: true });
+//       await Reply.create({
+//         name: contact.name,
+//         email: contact.email,
+//         message,
+//         phone: contact.phone,
+//         contactUs: id
+//       });
          
-      replyMail( contact.email, contact.name,message )
+//       replyMail( contact.email, contact.name,message )
 
-      return res.status(201).json({
-        success: true,
-        message: "Replied successfully",
-      });
+//       return res.status(201).json({
+//         success: true,
+//         message: "Replied successfully",
+//       });
 
-  } catch (err) {
-    console.error("Error in ReplayById:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-}
+//   } catch (err) {
+//     console.error("Error in ReplayById:", err.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// }
 
 //gitadd
