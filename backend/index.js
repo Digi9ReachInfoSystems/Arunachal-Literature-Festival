@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 7642;
 const allowedOrigins = [
   "http://10.0.104.49:8192",
   "http://10.0.104.49:7642",
-  "http://localhost:3000",
+  "https://litfest.arunachal.gov.in",
 ];
  
 dotenv.config();
