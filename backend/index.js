@@ -296,7 +296,7 @@ app.use("/api/v1/newsAndBlog",newsAndBlogRoute)
 app.use("/api/v1/homePage",homePageRoute)
 app.use("/api/v1/videoBlog",videoBlogRoute)
 app.use("/api/v1/sendMail",contactRoute)
-app.use("/uploads",Uploadrouter)
+app.use("/api/v1/uploads",Uploadrouter)
  
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
