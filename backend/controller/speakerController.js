@@ -2,7 +2,7 @@ import Speaker from "../models/speakerModel.js";
 import fs from 'fs';
 import path from "path";
 import multer from "multer";
-import { deleteLocalByUrl } from "../utils/fileStorage.js";
+import { deleteLocalByUrl, getUploadsRoot } from "../utils/fileStorage.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
@@ -10,7 +10,7 @@ const upload = multer({ storage }).single("image_url");
 // Local storage functions
 const uploadFileToLocal = async (file, folder) => {
   const fileName = Date.now() + path.extname(file.originalname);
-  const uploadDir = path.join(process.cwd(), 'uploads', folder);
+  const uploadDir = path.join(getUploadsRoot(), folder);
   const destination = path.join(uploadDir, fileName);
   
   // Create directory if it doesn't exist
