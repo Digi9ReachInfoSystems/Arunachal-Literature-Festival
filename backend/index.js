@@ -62,7 +62,33 @@ app.use(helmet({
   xssFilter: true
 }));
  
-// Lightweight in-memory rate limiter (no external deps)
+// Middleware to prevent duplicate CORS headers (must be before cors middleware)
+app.use((req, res, next) => {
+  // Intercept res.setHeader to prevent duplicate Access-Control-Allow-Origin
+  const originalSetHeader = res.setHeader.bind(res);
+  res.setHeader = function(name, value) {
+    if (name.toLowerCase() === 'access-control-allow-origin') {
+      // Check if header already exists
+      const existing = res.getHeader('Access-Control-Allow-Origin');
+      if (existing) {
+        // If it exists and is a string with comma (duplicate), take first value
+        if (typeof existing === 'string' && existing.includes(',')) {
+          const firstOrigin = existing.split(',')[0].trim();
+          return originalSetHeader(name, firstOrigin);
+        }
+        // If it exists and matches the new value, skip setting (prevent duplicate)
+        if (existing === value) {
+          return;
+        }
+        // If different, use the new value (cors middleware should take precedence)
+        return originalSetHeader(name, value);
+      }
+    }
+    return originalSetHeader(name, value);
+  };
+  next();
+});
+
 // CORS configuration
 app.use(
   cors({
@@ -78,9 +104,33 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    // Prevent duplicate headers by ensuring cors middleware handles everything
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
+
+// Final cleanup middleware to ensure no duplicate CORS headers before response is sent
+app.use((req, res, next) => {
+  const cleanupCorsHeaders = () => {
+    const originHeader = res.getHeader('Access-Control-Allow-Origin');
+    if (originHeader && typeof originHeader === 'string' && originHeader.includes(',')) {
+      // If header contains comma (duplicate), take first value
+      const firstOrigin = originHeader.split(',')[0].trim();
+      res.setHeader('Access-Control-Allow-Origin', firstOrigin);
+    }
+  };
+  
+  // Intercept res.end to clean up headers before sending
+  const originalEnd = res.end.bind(res);
+  res.end = function(...args) {
+    cleanupCorsHeaders();
+    return originalEnd(...args);
+  };
+  
+  next();
+});
  
 // Additional security headers middleware (complementary to Helmet)
 app.use((req, res, next) => {
@@ -101,10 +151,18 @@ app.use((req, res, next) => {
   next();
 });
  
-// Middleware to ensure proper content type for JSON responses
+// Middleware to ensure proper content type for JSON responses and cleanup CORS headers
 app.use((req, res, next) => {
   const originalSend = res.send;
   res.send = function(data) {
+    // Clean up duplicate CORS headers before sending
+    const originHeader = res.getHeader('Access-Control-Allow-Origin');
+    if (originHeader && typeof originHeader === 'string' && originHeader.includes(',')) {
+      const firstOrigin = originHeader.split(',')[0].trim();
+      res.setHeader('Access-Control-Allow-Origin', firstOrigin);
+    }
+    
+    // Set content type if not already set
     if (typeof data === 'object' && !res.getHeader('Content-Type')) {
       res.setHeader('Content-Type', 'application/json; charset=UTF-8');
     } else if (typeof data === 'string' && !res.getHeader('Content-Type')) {
