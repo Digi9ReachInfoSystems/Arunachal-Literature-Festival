@@ -89,17 +89,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
+// CORS configuration - Secure implementation
 app.use(
   cors({
     origin: function (origin, callback) {
-        console.log(origin);
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
+      console.log('CORS origin check:', origin);
+      
+      // Allow requests with no origin ONLY for same-origin requests
+      // (like direct server-to-server calls, Postman, curl from server itself)
+      if (!origin) {
+        // For production security, block requests without origin
+        return callback(null, false);
+      }
+      
+      // Check if origin is in whitelist
       if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+        // Return specific origin instead of true to prevent reflection attacks
+        return callback(null, origin);
       } else {
-        return callback(new Error("Not allowed by CORS"));
+        // Return false (no CORS headers) instead of error to block unauthorized origins
+        return callback(null, false);
       }
     },
     credentials: true,
@@ -110,6 +119,12 @@ app.use(
     optionsSuccessStatus: 204
   })
 );
+
+// Add Vary: Origin header to prevent cache poisoning attacks
+app.use((req, res, next) => {
+  res.setHeader('Vary', 'Origin');
+  next();
+});
 
 // Final cleanup middleware to ensure no duplicate CORS headers before response is sent
 app.use((req, res, next) => {
