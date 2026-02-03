@@ -23,7 +23,9 @@ const allowedOrigins = [
   "http://10.0.104.49:8192",
   "http://10.0.104.49:7642",
   "https://litfest.arunachal.gov.in",
-  "https://www.litfest.arunachal.gov.in"
+  "https://www.litfest.arunachal.gov.in",
+  "https://arunchalwebapp.gully2global.in",
+  "https://arunachal-literature-festival.vercel.app"
 ];
  
 dotenv.config();
