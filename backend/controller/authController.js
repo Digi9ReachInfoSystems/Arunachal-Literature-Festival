@@ -2,6 +2,7 @@ import User from "../models/userModel.js";
 import { generateToken } from "../utils/auth.js";
 import bcrypt from "bcryptjs";
 import { validateEmail, validatePassword } from "../utils/inputValidation.js";
+import { verifySolution } from 'altcha-lib';
 
 
 const addUser = async (req, res) => {
@@ -43,7 +44,28 @@ const addUser = async (req, res) => {
 };
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, altchaPayload } = req.body;
+
+    // CAPTCHA VERIFICATION (before any other checks)
+    if (!altchaPayload) {
+      return res.status(400).json({
+        success: false,
+        message: "Please complete the CAPTCHA",
+      });
+    }
+
+    // Verify CAPTCHA with ALTCHA
+    const isValidCaptcha = await verifySolution(
+      altchaPayload,
+      process.env.ALTCHA_SECRET_KEY
+    );
+
+    if (!isValidCaptcha) {
+      return res.status(400).json({
+        success: false,
+        message: "CAPTCHA verification failed. Please try again.",
+      });
+    }
 
     // CRITICAL FIX: Validate email input (prevent NoSQL injection)
     const emailValidation = validateEmail(email);

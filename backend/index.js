@@ -14,6 +14,7 @@ import newsAndBlogRoute from './route/newsAndBlogRoute.js';
 import homePageRoute from './route/home/homePageRoute.js';
 import videoBlogRoute from './route/videoBlogRoute.js';
 import contactRoute from './route/contactRoute.js';
+import captchaRoute from './route/captchaRoute.js';
 import { checkCookieConsent } from "./utils/auth.js";
 import viewCounterRoute from "./route/viewCounterRoute.js";
 import Uploadrouter from './route/upload/upload.js';
@@ -219,6 +220,7 @@ app.get("/", (req, res) => {
 app.use("/api/v1/onboarding/login", loginRateLimiter);
 
 app.use("/api/v1", checkCookieConsent,viewCounterRoute)
+app.use("/api/v1/captcha", captchaRoute)
 app.use("/api/v1/onboarding",authRoute)
 app.use("/api/v1/event",eventRoute)
 app.use("/api/v1/speaker",speakerRoute)
