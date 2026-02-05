@@ -1,22 +1,39 @@
 import User from "../models/userModel.js";
 import { generateToken } from "../utils/auth.js";
 import bcrypt from "bcryptjs";
+import { validateEmail, validatePassword } from "../utils/inputValidation.js";
 
 
 const addUser = async (req, res) => {
     try {
         const { name, email, password,confirmPassword } = req.body;
+
+        // Validate email
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.valid) {
+            return res.status(400).json({ message: emailValidation.error });
+        }
+
+        // Validate password
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.error });
+        }
+
         if (password !== confirmPassword) {
             return res.status(400).json({ message: "Passwords do not match" });
         }
-        const existingUser = await User.findOne({ email });
+
+        // Use sanitized email
+        const sanitizedEmail = emailValidation.sanitized;
+        const existingUser = await User.findOne({ email: sanitizedEmail });
         if (existingUser) {
             return res.status(400).json({ message: "Email already in use" });
             }
        
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = new User({ name, email, password:hashedPassword });
+        const user = new User({ name, email: sanitizedEmail, password:hashedPassword });
         await user.save();
         res.status(201).json({ message: "User added successfully" });
     } catch (error) {
@@ -28,14 +45,27 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    // CRITICAL FIX: Validate email input (prevent NoSQL injection)
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: "Please provide email and password",
+        message: emailValidation.error,
       });
     }
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password');
+    // CRITICAL FIX: Validate password input (prevent NoSQL injection & empty credentials)
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.error,
+      });
+    }
+
+    // Use sanitized email for database query
+    const sanitizedEmail = emailValidation.sanitized;
+    const user = await User.findOne({ email: sanitizedEmail }).select('+password');
     
     if (!user) {
       return res.status(401).json({
@@ -194,22 +224,37 @@ const editUser = async (req, res) => {
       return res.status(403).json({ message: "You cannot change your role" });
     }
 
+    // Update user data
+    const updateData = {};
+
     // Check if email is being changed and if it's already in use
-    if (email && email !== userToEdit.email) {
-      const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
-      if (existingUser) {
-        return res.status(400).json({ message: "Email already in use" });
+    if (email) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        return res.status(400).json({ message: emailValidation.error });
       }
+      
+      const sanitizedEmail = emailValidation.sanitized;
+      if (sanitizedEmail !== userToEdit.email) {
+        const existingUser = await User.findOne({ email: sanitizedEmail });
+        if (existingUser) {
+          return res.status(400).json({ message: "Email already in use" });
+        }
+      }
+      updateData.email = sanitizedEmail;
     }
 
     // Update user data
-    const updateData = {};
     if (name) updateData.name = name;
-    if (email) updateData.email = email.trim().toLowerCase();
     if (role && currentUser.role === "admin") updateData.role = role;
 
     // Handle password update
     if (password) {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ message: passwordValidation.error });
+      }
+      
       if (password !== confirmPassword) {
         return res.status(400).json({ message: "Passwords do not match" });
       }

@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import connectDB from './config/mongoConnect.js';
 import cookieParser from 'cookie-parser';
 import authRoute from './route/authRoute.js';
@@ -20,6 +21,7 @@ import Uploadrouter from './route/upload/upload.js';
 const app = express();
 const PORT = process.env.PORT || 7642;
 const allowedOrigins = [
+  "http://localhost:3000",
   "http://10.0.104.49:8192",
   "http://10.0.104.49:7642",
   "https://litfest.arunachal.gov.in",
@@ -194,11 +196,28 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser(process.env.SECRET_KEY));
 
+// HIGH PRIORITY FIX: Rate limiter for login endpoint
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes window
+  max: 5, // Limit each IP to 5 login requests per window
+  message: {
+    success: false,
+    message: 'Too many login attempts from this IP. Please try again in 15 minutes.',
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skipSuccessfulRequests: false, // Count successful requests
+  skipFailedRequests: false, // Count failed requests
+});
+
  
 app.get("/", (req, res) => {
   res.send("Welcome to Arunachal Literature Fest API");}
 );
  
+// Apply rate limiter only to login endpoint
+app.use("/api/v1/onboarding/login", loginRateLimiter);
+
 app.use("/api/v1", checkCookieConsent,viewCounterRoute)
 app.use("/api/v1/onboarding",authRoute)
 app.use("/api/v1/event",eventRoute)
