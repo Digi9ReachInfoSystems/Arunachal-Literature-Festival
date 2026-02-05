@@ -40,7 +40,7 @@ export const validatePassword = (password) => {
   }
 
   // Check minimum length
-  if (password.length < 6) {
+  if (password.length < 8) {
     return { valid: false, error: 'Invalid credentials' }; // Generic message for security
   }
 
