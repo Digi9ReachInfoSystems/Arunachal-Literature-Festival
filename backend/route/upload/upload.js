@@ -16,7 +16,6 @@ function isValidFilename(filename) {
 
 // OPTIONS preflight for thumbnails (specific route)
 Uploadrouter.options('/VideoBlog/thumbnails/:filename', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -43,8 +42,7 @@ Uploadrouter.get('/VideoBlog/videos/:filename', (req, res) => {
     const fileSize = stat.size;
     const range = req.headers.range;
 
-    // CORS + caching + content headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Caching + content headers (CORS handled by main middleware)
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Range');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -101,7 +99,6 @@ Uploadrouter.get('/VideoBlog/videos/:filename', (req, res) => {
 Uploadrouter.use((req, res, next) => {
   const filePath = req.path.toLowerCase();
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -132,7 +129,6 @@ Uploadrouter.use((req, res, next) => {
 const uploadsRoot = getUploadsRoot();
 Uploadrouter.use('/', express.static(uploadsRoot, {
   setHeaders: (res, filePath) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
     if (filePath.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/i)) {

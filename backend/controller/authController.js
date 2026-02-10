@@ -96,50 +96,16 @@ const login = async (req, res) => {
       });
     }
 
-    // If account is locked and lock hasn't expired
-    if (user.lockUntil && user.lockUntil > new Date()) {
-      const remainingMs = user.lockUntil.getTime() - Date.now();
-      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-      return res.status(423).json({
+    // Compare passwords
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
         success: false,
-        message: `Account locked. Try again in ${remainingHours} hour(s)`,
-        lockUntil: user.lockUntil,
+        message: "Incorrect email or password",
       });
     }
 
-    // Compare passwords
-    const isPasswordValid = await user.comparePassword(password); // comparePassword must be defined in schema
-    if (!isPasswordValid) {
-      // increment failed attempts and lock if threshold reached
-      const newFailedCount = (user.failedLoginAttempts || 0) + 1;
-      user.failedLoginAttempts = newFailedCount;
-      if (newFailedCount >= 5) {
-        user.lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-      }
-      await user.save();
-      const remaining = Math.max(0, 5 - newFailedCount);
-      const baseResponse = {
-        success: false,
-        message: "Incorrect email or password",
-        remainingAttempts: remaining,
-      };
-      if (user.lockUntil && user.lockUntil > new Date()) {
-        return res.status(423).json({
-          ...baseResponse,
-          message: "Account locked due to too many failed attempts",
-          lockUntil: user.lockUntil,
-        });
-      }
-      return res.status(401).json(baseResponse);
-    }
-    const expiresAt = new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-    );
-
-
-    // Successful login: reset counters
-    user.failedLoginAttempts = 0;
-    user.lockUntil = null;
+    // Generate token
     const token = generateToken(user);
 
     res.cookie("token", token, {
@@ -148,7 +114,6 @@ const login = async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, 
       sameSite: "strict", 
     });
-    await user.save();
 
     // Prepare user data response
     const userData = {

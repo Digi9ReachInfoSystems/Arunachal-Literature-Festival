@@ -109,8 +109,8 @@ app.use(
       
       // Check if origin is in whitelist
       if (allowedOrigins.includes(origin)) {
-        // Return specific origin instead of true to prevent reflection attacks
-        return callback(null, origin);
+        // Return true to allow whitelisted origin
+        return callback(null, true);
       } else {
         // Return false (no CORS headers) instead of error to block unauthorized origins
         return callback(null, false);
@@ -199,11 +199,11 @@ app.use(cookieParser(process.env.SECRET_KEY));
 
 // HIGH PRIORITY FIX: Rate limiter for login endpoint
 const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes window
+  windowMs: 5 * 60 * 1000, // 5 minutes window
   max: 5, // Limit each IP to 5 login requests per window
   message: {
     success: false,
-    message: 'Too many login attempts from this IP. Please try again in 15 minutes.',
+    message: 'Too many login attempts from this IP. Please try again in 5 minutes.',
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
