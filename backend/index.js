@@ -19,9 +19,13 @@ import { checkCookieConsent } from "./utils/auth.js";
 import viewCounterRoute from "./route/viewCounterRoute.js";
 import Uploadrouter from './route/upload/upload.js';
  
+dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 7642;
-const allowedOrigins = [
+
+// CORS: strict whitelist only — never trust arbitrary origins (CWE-942)
+const defaultOrigins = [
   "http://localhost:3000",
   "http://10.0.104.49:8192",
   "http://10.0.104.49:7642",
@@ -30,8 +34,9 @@ const allowedOrigins = [
   "https://arunchalwebapp.gully2global.in",
   "https://arunachal-literature-festival.vercel.app"
 ];
- 
-dotenv.config();
+const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+  ? process.env.CORS_ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean).filter((o) => o !== "*")
+  : defaultOrigins;
 await connectDB();
  
 // Basic hardening
@@ -67,25 +72,24 @@ app.use(helmet({
   xssFilter: true
 }));
  
-// Middleware to prevent duplicate CORS headers (must be before cors middleware)
+// Middleware to prevent duplicate CORS headers and enforce whitelist (must be before cors middleware)
 app.use((req, res, next) => {
-  // Intercept res.setHeader to prevent duplicate Access-Control-Allow-Origin
   const originalSetHeader = res.setHeader.bind(res);
   res.setHeader = function(name, value) {
     if (name.toLowerCase() === 'access-control-allow-origin') {
-      // Check if header already exists
+      const requestOrigin = req.get('Origin');
+      if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+        return; // Never set CORS origin for non-whitelisted origins
+      }
       const existing = res.getHeader('Access-Control-Allow-Origin');
       if (existing) {
-        // If it exists and is a string with comma (duplicate), take first value
         if (typeof existing === 'string' && existing.includes(',')) {
           const firstOrigin = existing.split(',')[0].trim();
           return originalSetHeader(name, firstOrigin);
         }
-        // If it exists and matches the new value, skip setting (prevent duplicate)
         if (existing === value) {
           return;
         }
-        // If different, use the new value (cors middleware should take precedence)
         return originalSetHeader(name, value);
       }
     }
@@ -94,27 +98,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration - Secure implementation
+// CORS configuration - whitelist only; never reflect or allow arbitrary origins
 app.use(
   cors({
     origin: function (origin, callback) {
-      console.log('CORS origin check:', origin);
-      
-      // Allow requests with no origin ONLY for same-origin requests
-      // (like direct server-to-server calls, Postman, curl from server itself)
       if (!origin) {
-        // For production security, block requests without origin
         return callback(null, false);
       }
-      
-      // Check if origin is in whitelist
       if (allowedOrigins.includes(origin)) {
-        // Return true to allow whitelisted origin
         return callback(null, true);
-      } else {
-        // Return false (no CORS headers) instead of error to block unauthorized origins
-        return callback(null, false);
       }
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
