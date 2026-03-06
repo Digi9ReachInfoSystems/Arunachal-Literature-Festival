@@ -1,32 +1,63 @@
-import { createChallenge } from 'altcha-lib';
+import svgCaptcha from 'svg-captcha-fixed';
+import crypto from 'crypto';
 
-/**
- * Generate CAPTCHA challenge
- * Endpoint: GET /api/v1/captcha/generate
- * Returns: { challenge, salt, algorithm, signature }
- */
+const captchaStore = new Map();
+const CAPTCHA_EXPIRY_MS = 5 * 60 * 1000;
+
+function cleanExpired() {
+  const now = Date.now();
+  for (const [id, entry] of captchaStore) {
+    if (now - entry.createdAt > CAPTCHA_EXPIRY_MS) {
+      captchaStore.delete(id);
+    }
+  }
+}
+
 export const generateCaptcha = async (req, res) => {
   try {
-    // Create challenge using ALTCHA
-    const challenge = await createChallenge({
-      hmacKey: process.env.ALTCHA_SECRET_KEY,
-      algorithm: 'SHA-256',
-      maxNumber: 100000, // Difficulty level (higher = harder)
-      saltLength: 12,
+    cleanExpired();
+
+    const captcha = svgCaptcha.create({
+      size: 8,
+      ignoreChars: '0oO1ilI',
+      noise: 4,
+      color: true,
+      background: '#0a1628',
+      width: 280,
+      height: 80,
+      fontSize: 45,
     });
 
-    // Return challenge data to frontend
+    const captchaId = crypto.randomUUID();
+
+    captchaStore.set(captchaId, {
+      text: captcha.text.toLowerCase(),
+      createdAt: Date.now(),
+    });
+
     res.json({
-      challenge: challenge.challenge,
-      salt: challenge.salt,
-      algorithm: challenge.algorithm,
-      signature: challenge.signature,
+      success: true,
+      captchaId,
+      svg: captcha.data,
     });
   } catch (error) {
     console.error('CAPTCHA generation error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error generating CAPTCHA' 
+      message: 'Error generating CAPTCHA',
     });
   }
+};
+
+export const verifyCaptcha = (captchaId, userInput) => {
+  if (!captchaId || !userInput) return false;
+
+  const entry = captchaStore.get(captchaId);
+  if (!entry) return false;
+
+  captchaStore.delete(captchaId);
+
+  if (Date.now() - entry.createdAt > CAPTCHA_EXPIRY_MS) return false;
+
+  return entry.text === userInput.toLowerCase().trim();
 };

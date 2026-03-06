@@ -2,7 +2,7 @@ import User from "../models/userModel.js";
 import { generateToken } from "../utils/auth.js";
 import bcrypt from "bcryptjs";
 import { validateEmail, validatePassword } from "../utils/inputValidation.js";
-import { verifySolution } from 'altcha-lib';
+import { verifyCaptcha } from './captchaController.js';
 
 
 const addUser = async (req, res) => {
@@ -44,21 +44,16 @@ const addUser = async (req, res) => {
 };
 const login = async (req, res) => {
   try {
-    const { email, password, altchaPayload } = req.body;
+    const { email, password, captchaId, captchaCode } = req.body;
 
-    // CAPTCHA VERIFICATION (before any other checks)
-    if (!altchaPayload) {
+    if (!captchaId || !captchaCode) {
       return res.status(400).json({
         success: false,
         message: "Please complete the CAPTCHA",
       });
     }
 
-    // Verify CAPTCHA with ALTCHA
-    const isValidCaptcha = await verifySolution(
-      altchaPayload,
-      process.env.ALTCHA_SECRET_KEY
-    );
+    const isValidCaptcha = verifyCaptcha(captchaId, captchaCode);
 
     if (!isValidCaptcha) {
       return res.status(400).json({
