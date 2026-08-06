@@ -9,7 +9,7 @@ const Banner = mongoose.model("Banner", bannerSchmea);
 const textSchmea = new mongoose.Schema({
     bannerText: {
         type: String,
-        required: true
+        required: false
     },
     bannerSubText: {
         type: String,
@@ -33,7 +33,7 @@ const buttonTextSchema = new mongoose.Schema({
     },
     link: {
         type: String,
-        required: true
+        required: false
     }
 })
 const Button = mongoose.model("Button", buttonTextSchema);
