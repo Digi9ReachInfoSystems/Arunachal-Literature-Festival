@@ -2,6 +2,7 @@ import express from "express";
 import { protect, restrictTo } from "../utils/auth.js";
 import { addEvent, addTime, deleteEvent, deleteTime, genratePdf, getEvent, getEventDay, getFullEventDetails, getTime, getTotalEvent, updateEvent, updateEventDay, updateTime } from "../controller/eventScheduleController.js";
 import { addEventBroucher, deleteEventBroucher, getEventBroucher, updateEventBroucher } from "../controller/eventBroucherController.js";
+import { addScheduleDayPreview, deleteScheduleDayPreview, getScheduleDayPreviews, removeScheduleDayImage, reorderScheduleDayImages, updateScheduleDayPreview } from "../controller/scheduleDayPreviewController.js";
 
 const eventRoute = express.Router();
 
@@ -23,6 +24,13 @@ eventRoute.post("/updateEventBroucher/:id",protect,restrictTo("admin","user"),up
 eventRoute.delete("/deleteEventBroucher/:id",protect,restrictTo("admin"),deleteEventBroucher);
 
 eventRoute.get("/generatePdf",genratePdf);
+
+eventRoute.get("/getScheduleDayPreviews", getScheduleDayPreviews);
+eventRoute.post("/addScheduleDayPreview", protect, restrictTo("admin"), addScheduleDayPreview);
+eventRoute.post("/updateScheduleDayPreview/:id", protect, restrictTo("admin", "user"), updateScheduleDayPreview);
+eventRoute.post("/removeScheduleDayImage/:id", protect, restrictTo("admin", "user"), removeScheduleDayImage);
+eventRoute.post("/reorderScheduleDayImages/:id", protect, restrictTo("admin", "user"), reorderScheduleDayImages);
+eventRoute.delete("/deleteScheduleDayPreview/:id", protect, restrictTo("admin"), deleteScheduleDayPreview);
 
 
 

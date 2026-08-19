@@ -84,4 +84,38 @@ const eventBroucherSchema = new mongoose.Schema({
   
 })
 const EventBroucher = mongoose.model("EventBroucher", eventBroucherSchema);
-export { EventsCollection, EventDayCollection, TimeCollection,EventBroucher };
+
+const scheduleDayPreviewSchema = new mongoose.Schema({
+  dayNumber: {
+    type: Number,
+    required: true,
+    unique: true,
+  },
+  label: {
+    type: String,
+  },
+  images: {
+    type: [String],
+    default: [],
+  },
+  downloadUrl: {
+    type: String,
+    required: false,
+  },
+  createdAt: Date,
+  updatedAt: Date,
+});
+
+scheduleDayPreviewSchema.pre("save", function (next) {
+  this.updatedAt = new Date();
+  if (!this.createdAt) this.createdAt = new Date();
+  if (!this.label) this.label = `DAY ${this.dayNumber}`;
+  next();
+});
+
+const ScheduleDayPreview = mongoose.model(
+  "ScheduleDayPreview",
+  scheduleDayPreviewSchema
+);
+
+export { EventsCollection, EventDayCollection, TimeCollection, EventBroucher, ScheduleDayPreview };
