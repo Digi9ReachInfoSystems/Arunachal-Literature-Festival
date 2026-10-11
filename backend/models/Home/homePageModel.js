@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 
 const bannerSchmea = new mongoose.Schema({
     image_url: String,
-
+    video_url: String,
+    youtube_url: String,
 })
 const Banner = mongoose.model("Banner", bannerSchmea);
 const textSchmea = new mongoose.Schema({

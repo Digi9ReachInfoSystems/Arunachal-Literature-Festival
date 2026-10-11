@@ -112,7 +112,7 @@ export const addVideoBlog = async (req, res) => {
 
 export const getVideoBlog = async (req, res) => {
   try {
-    const videoBlog = await VideoBlog.find();
+    const videoBlog = await VideoBlog.find().sort({ addedAt: -1, _id: -1 });
     res.status(200).json(videoBlog);
   } catch (err) {
     console.error("Error getting video blog:", err.message);
@@ -143,7 +143,7 @@ export const getVideoBlogById = async (req, res) => {
 
 export const getYoutubeVideo = async (req, res) => {
   try {
-    const videoBlog = await VideoBlog.find({ videoType: "youtube" });
+    const videoBlog = await VideoBlog.find({ videoType: "youtube" }).sort({ addedAt: -1, _id: -1 });
     if (!videoBlog || videoBlog.length === 0) {
       return res.status(404).json({ message: "No YouTube videos found" });
     }
@@ -155,7 +155,7 @@ export const getYoutubeVideo = async (req, res) => {
 };
 export const getRawVideo = async (req, res) => {
   try {
-    const videoBlog = await VideoBlog.find({ videoType: "video" });
+    const videoBlog = await VideoBlog.find({ videoType: "video" }).sort({ addedAt: -1, _id: -1 });
     if (!videoBlog || videoBlog.length === 0) {
       return res.status(404).json({ message: "No raw videos found" });
     }

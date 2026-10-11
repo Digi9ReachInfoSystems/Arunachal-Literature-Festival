@@ -1,6 +1,7 @@
 import TeamMember from "../models/teamModel.js";
 import multer from "multer";
 import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
+import { sortByDisplayOrder } from "../utils/displayOrder.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
@@ -19,7 +20,7 @@ const handleFileUpload = (req, res) => {
 
 export const getTeamMembers = async (req, res) => {
   try {
-    const members = await TeamMember.find().sort({ order: 1, createdAt: 1 });
+    const members = sortByDisplayOrder(await TeamMember.find());
     res.status(200).json({
       success: true,
       data: members,

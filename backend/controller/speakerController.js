@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { deleteLocalByUrl, getUploadsRoot } from "../utils/fileStorage.js";
+import { sortByDisplayOrder } from "../utils/displayOrder.js";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
@@ -34,7 +35,7 @@ export const addSpeaker = async (req, res) => {
     });
 
     const { yearId } = req.params;
-    const { name, about } = req.body;
+    const { name, about, order } = req.body;
     const file = req.file;
 
     const speakerYear = await SpeakerYear.findById(yearId);
@@ -47,11 +48,14 @@ export const addSpeaker = async (req, res) => {
       imageUrl = await uploadFileToLocal(file, "Speaker");
     }
 
+    const parsedOrder = order !== undefined && order !== "" ? Number(order) : 0;
+
     const speaker = new Speaker({
       year_ref: yearId,
       name,
       about,
       image_url: imageUrl || undefined,
+      order: Number.isFinite(parsedOrder) ? parsedOrder : 0,
     });
 
     await speaker.save();
@@ -67,7 +71,7 @@ export const addSpeaker = async (req, res) => {
 
 const buildGroupedResponse = async (filter = {}) => {
   const years = await SpeakerYear.find().sort({ year: -1 });
-  const speakers = await Speaker.find(filter).select("-event_ref");
+  const speakers = sortByDisplayOrder(await Speaker.find(filter).select("-event_ref"));
 
   const speakersByYear = speakers.reduce((acc, speaker) => {
     const yearId = speaker.year_ref?.toString();
@@ -82,7 +86,7 @@ const buildGroupedResponse = async (filter = {}) => {
     year: y.year,
     label: y.label,
     isActive: y.isActive,
-    speakers: speakersByYear[y._id.toString()] || [],
+    speakers: sortByDisplayOrder(speakersByYear[y._id.toString()] || []),
   }));
 };
 
@@ -105,7 +109,9 @@ export const getSpeakerByYear = async (req, res) => {
       return res.status(404).json({ message: "Speaker year not found" });
     }
 
-    const speakers = await Speaker.find({ year_ref: yearId }).select("-event_ref");
+    const speakers = sortByDisplayOrder(
+      await Speaker.find({ year_ref: yearId }).select("-event_ref")
+    );
 
     res.status(200).json({
       _id: speakerYear._id,
@@ -135,7 +141,7 @@ export const updateSpeaker = async (req, res) => {
       return res.status(404).json({ message: "Speaker not found" });
     }
 
-    const { name, about, yearId } = req.body;
+    const { name, about, yearId, order } = req.body;
     const file = req.file;
     let newImageUrl = speaker.image_url;
 
@@ -151,6 +157,11 @@ export const updateSpeaker = async (req, res) => {
       about: about?.trim() || speaker.about,
       image_url: newImageUrl,
     };
+
+    if (order !== undefined && order !== "") {
+      const parsedOrder = Number(order);
+      if (Number.isFinite(parsedOrder)) updateData.order = parsedOrder;
+    }
 
     if (yearId) {
       const speakerYear = await SpeakerYear.findById(yearId);

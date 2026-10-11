@@ -13,27 +13,58 @@ import { saveBufferToLocal, deleteLocalByUrl } from "../../utils/fileStorage.js"
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("image_url");
-export const addBanner = async (req, res) => {
-  const handleFileUpload = () => {
-    return new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err) {
-          console.error("Multer error:", err);
-          return reject(new Error("File upload failed: " + err.message));
-        }
-        resolve();
-      });
+const bannerUpload = multer({ storage }).fields([
+  { name: "image_url", maxCount: 1 },
+  { name: "video_url", maxCount: 1 },
+]);
+
+function cleanYouTubeUrl(url) {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("youtu.be")) {
+    const videoId = trimmed.split("/").pop().split("?")[0];
+    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
+  }
+  if (trimmed.includes("youtube.com")) {
+    const match = trimmed.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/watch?v=${match[2]}`;
+    }
+  }
+  return trimmed;
+}
+
+const handleBannerUpload = (req, res) => {
+  return new Promise((resolve, reject) => {
+    bannerUpload(req, res, (err) => {
+      if (err) {
+        console.error("Multer error:", err);
+        return reject(new Error("File upload failed: " + err.message));
+      }
+      resolve();
     });
-  };
+  });
+};
+
+export const addBanner = async (req, res) => {
   try {
-    await handleFileUpload();
-    const file = req.file;
+    await handleBannerUpload(req, res);
+    const imageFile = req.files?.image_url?.[0];
+    const videoFile = req.files?.video_url?.[0];
     let imageUrl = "";
-    if (file) {
-      imageUrl = await saveBufferToLocal(file, "Banner");
+    let videoUrl = "";
+    if (imageFile) {
+      imageUrl = await saveBufferToLocal(imageFile, "Banner");
+    }
+    if (videoFile) {
+      videoUrl = await saveBufferToLocal(videoFile, "Banner/videos");
     }
 
-    const banner = await Banner.create({ image_url: imageUrl });
+    const banner = await Banner.create({
+      image_url: imageUrl,
+      video_url: videoUrl,
+      youtube_url: cleanYouTubeUrl(req.body.youtube_url),
+    });
     res.json({ message: "Banner Added Successfully", banner: banner });
   } catch (error) {
     console.error("Error adding banner:", error);
@@ -51,17 +82,8 @@ export const getBanner = async (req, res) => {
 };
 
 export const updateBanner = async (req, res) => {
-  const handleFileUpload = () => {
-    return new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err) return reject(err);
-        resolve();
-      });
-    });
-  };
-
   try {
-    await handleFileUpload();
+    await handleBannerUpload(req, res);
     const { bannerId } = req.params;
     const banner = await Banner.findById(bannerId);
 
@@ -69,11 +91,13 @@ export const updateBanner = async (req, res) => {
       return res.status(404).json({ message: "Banner not found" });
     }
 
-    const file = req.file;
+    const imageFile = req.files?.image_url?.[0];
+    const videoFile = req.files?.video_url?.[0];
     let newImageUrl = banner.image_url;
+    let newVideoUrl = banner.video_url || "";
+    let youtubeUrl = banner.youtube_url || "";
 
-    if (file) {
-      // Delete old image if it exists
+    if (imageFile) {
       if (banner.image_url) {
         try {
           await deleteLocalByUrl(banner.image_url);
@@ -81,14 +105,31 @@ export const updateBanner = async (req, res) => {
           console.warn("Failed to delete old image:", err.message);
         }
       }
+      newImageUrl = await saveBufferToLocal(imageFile, "Banner");
+    }
 
-      // Upload new image
-      newImageUrl = await saveBufferToLocal(file, "Banner");
+    if (videoFile) {
+      if (banner.video_url) {
+        try {
+          await deleteLocalByUrl(banner.video_url);
+        } catch (err) {
+          console.warn("Failed to delete old video:", err.message);
+        }
+      }
+      newVideoUrl = await saveBufferToLocal(videoFile, "Banner/videos");
+    }
+
+    if (req.body.youtube_url !== undefined) {
+      youtubeUrl = cleanYouTubeUrl(req.body.youtube_url);
     }
 
     const updatedBanner = await Banner.findByIdAndUpdate(
       bannerId,
-      { image_url: newImageUrl },
+      {
+        image_url: newImageUrl,
+        video_url: newVideoUrl,
+        youtube_url: youtubeUrl,
+      },
       { new: true }
     );
 
@@ -116,6 +157,13 @@ export const deleteBanner = async (req, res) => {
         console.log("Successfully deleted banner image:", banner.image_url);
       } catch (err) {
         console.warn("Warning: Failed to delete image:", err.message);
+      }
+    }
+    if (banner.video_url) {
+      try {
+        await deleteLocalByUrl(banner.video_url);
+      } catch (err) {
+        console.warn("Warning: Failed to delete video:", err.message);
       }
     }
 
