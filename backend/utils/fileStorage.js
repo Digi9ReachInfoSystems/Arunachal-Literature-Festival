@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+import { fastStartMp4, isMp4Upload } from "./mp4FastStart.js";
 
 // Helper function to get consistent uploads root path
 export const getUploadsRoot = () => {
@@ -30,7 +31,9 @@ export const saveBufferToLocal = async (file, folder) => {
 	const destination = path.join(uploadsRoot, fileName);
 	
 	console.log('Saving file to:', destination);
-	await fs.promises.writeFile(destination, file.buffer);
+	// MP4 videos: move the index to the front so browsers can start playing sooner (no re-encode).
+	const data = isMp4Upload(file) ? fastStartMp4(file.buffer) : file.buffer;
+	await fs.promises.writeFile(destination, data);
 	
 	const returnPath = `/uploads/${folder}/${fileName}`;
 	console.log('Returning path:', returnPath);
