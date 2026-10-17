@@ -134,7 +134,14 @@ Uploadrouter.use('/', express.static(uploadsRoot, {
     if (filePath.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/i)) {
       res.setHeader('Content-Disposition', 'inline');
       res.setHeader('Accept-Ranges', 'bytes');
+      // Uploaded names are unique (timestamp prefix), so browsers can keep videos instead of re-checking every visit.
+      res.setHeader('Cache-Control', 'public, max-age=2592000');
     }
+
+    // Default would be application/mp4; video/mp4 is what Safari and other players expect.
+    const videoTypes = { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm' };
+    const videoType = videoTypes[path.extname(filePath).toLowerCase()];
+    if (videoType) res.setHeader('Content-Type', videoType);
 
     if (filePath.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
       res.setHeader('Content-Disposition', 'inline');
