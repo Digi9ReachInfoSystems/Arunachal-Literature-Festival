@@ -1,4 +1,5 @@
 import Workshop from "../models/registrationModel.js";
+import SectionTitle from "../models/sectionTitleModel.js";
 import multer from "multer";
 import path from "path";
 import { saveBufferToLocal, deleteLocalByUrl } from "../utils/fileStorage.js";
@@ -110,6 +111,41 @@ export const deleteWorkshop = async (req, res) => {
     res.status(200).json({ message: "Workshop deleted successfully" });
   } catch (error) {
     console.error("Error deleting workshop:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ---- Children's Corner section title (admin editable) ----
+const SECTION_TITLE_KEY = "childrensCorner";
+const DEFAULT_SECTION_TITLE = "CHILDREN'S CORNER";
+
+export const getSectionTitle = async (req, res) => {
+  try {
+    const doc = await SectionTitle.findOne({ key: SECTION_TITLE_KEY });
+    res.status(200).json({ title: doc?.title || DEFAULT_SECTION_TITLE });
+  } catch (error) {
+    console.error("Error getting section title:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateSectionTitle = async (req, res) => {
+  try {
+    const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    if (title.length > 100) {
+      return res.status(400).json({ message: "Title must be 100 characters or less" });
+    }
+    const doc = await SectionTitle.findOneAndUpdate(
+      { key: SECTION_TITLE_KEY },
+      { title },
+      { new: true, upsert: true, runValidators: true }
+    );
+    res.status(200).json({ message: "Title updated successfully", title: doc.title });
+  } catch (error) {
+    console.error("Error updating section title:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
