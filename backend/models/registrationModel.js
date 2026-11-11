@@ -24,11 +24,14 @@ const WorkshopSchema = new mongoose.Schema(
         message: "Only JPG, JPEG, and PNG image formats are allowed",
       },
     },
+    // Optional: empty is allowed; if provided it must be a Google Form URL
     registrationFormUrl: {
       type: String,
-      required: true,
+      required: false,
+      trim: true,
+      default: "",
       validate: {
-        validator: (v) => /^https:\/\/docs\.google\.com\/forms\/.+/i.test(v),
+        validator: (v) => !v || /^https:\/\/docs\.google\.com\/forms\/.+/i.test(v),
         message: "Must be a valid Google Form URL",
       },
     },

@@ -33,7 +33,7 @@ export const addWorkshop = async (req, res) => {
       name,
       about,
       imageUrl,
-      registrationFormUrl,
+      registrationFormUrl: registrationFormUrl ? String(registrationFormUrl).trim() : "",
     });
     await workshop.save();
     res.status(200).json({ message: "Workshop added successfully" });
@@ -84,9 +84,11 @@ export const updateWorkshop = async (req, res) => {
         name: name?.trim() || workshop.name,
         about: about?.trim() || workshop.about,
         imageUrl: newImageUrl,
-        registrationFormUrl: registrationFormUrl,
+        // Optional: keep existing value if not sent; empty string clears it
+        registrationFormUrl:
+          registrationFormUrl !== undefined ? String(registrationFormUrl).trim() : workshop.registrationFormUrl,
       },
-      { new: true }
+      { new: true, runValidators: true }
     );
     res
       .status(200)
